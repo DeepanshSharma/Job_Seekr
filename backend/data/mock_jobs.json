@@ -1,0 +1,74 @@
+[
+  {
+    "id": "mock_001",
+    "job_title": "Data Analyst",
+    "company_name": "Google",
+    "location": "Mountain View, CA",
+    "apify_source_url": "https://linkedin.com/jobs/mock_001",
+    "posted_at": "DAYS_AGO_1",
+    "job_description": "We are looking for a Data Analyst to join our Ads team. You will build dashboards, write SQL queries, and work with Python to analyze large datasets. We are open to candidates on F1-OPT and can offer visa sponsorship for qualified candidates. Requirements: 2+ years SQL, Python, experience with BI tools like Tableau or Looker."
+  },
+  {
+    "id": "mock_002",
+    "job_title": "Business Analyst",
+    "company_name": "JPMorgan Chase",
+    "location": "New York, NY",
+    "apify_source_url": "https://linkedin.com/jobs/mock_002",
+    "posted_at": "DAYS_AGO_2",
+    "job_description": "JPMorgan Chase is seeking a Business Analyst for our Digital Banking division. Responsibilities include gathering requirements from stakeholders, documenting workflows, and producing operational reports. Strong communication and SQL skills required. We support H1B and OPT sponsorship for exceptional candidates."
+  },
+  {
+    "id": "mock_003",
+    "job_title": "Data Scientist",
+    "company_name": "Stripe",
+    "location": "San Francisco, CA",
+    "apify_source_url": "https://linkedin.com/jobs/mock_003",
+    "posted_at": "DAYS_AGO_5",
+    "job_description": "Stripe is hiring a Data Scientist to work on fraud detection models. You will use Python, scikit-learn, and internal ML platforms to build and deploy predictive models. Great benefits and competitive pay. Visa sponsorship available."
+  },
+  {
+    "id": "mock_004",
+    "job_title": "Data Analyst",
+    "company_name": "Lockheed Martin",
+    "location": "Bethesda, MD",
+    "apify_source_url": "https://linkedin.com/jobs/mock_004",
+    "posted_at": "DAYS_AGO_1",
+    "job_description": "This position requires US Citizenship due to the nature of our defense contracts and access to classified information. Applicants must be US Citizens or Permanent Residents. We are unable to offer visa sponsorship or work with OPT/H1B candidates. Responsibilities include building internal reports and maintaining data pipelines."
+  },
+  {
+    "id": "mock_005",
+    "job_title": "AI Engineer",
+    "company_name": "Meta",
+    "location": "Menlo Park, CA",
+    "apify_source_url": "https://linkedin.com/jobs/mock_005",
+    "posted_at": "DAYS_AGO_0",
+    "job_description": "Meta AI is looking for an AI Engineer to work on large language model fine-tuning and deployment. You will use PyTorch, TensorFlow, and internal ML infrastructure. Experience with transformer architectures, RAG pipelines, and LangChain is a plus. We welcome international candidates and provide full visa sponsorship including H1B."
+  },
+  {
+    "id": "mock_006",
+    "job_title": "Data Analyst",
+    "company_name": "Capital One",
+    "location": "McLean, VA",
+    "apify_source_url": "https://linkedin.com/jobs/mock_006",
+    "posted_at": "DAYS_AGO_2",
+    "job_description": "Capital One is looking for a Data Analyst to join the Customer Insights team. You will write complex SQL queries, build Power BI dashboards, and collaborate with product managers to track KPIs. Python scripting for automation is a plus. Open to OPT candidates."
+  },
+  {
+    "id": "mock_007",
+    "job_title": "Business Intelligence Analyst",
+    "company_name": "Walmart",
+    "location": "Bentonville, AR",
+    "apify_source_url": "https://linkedin.com/jobs/mock_007",
+    "posted_at": "DAYS_AGO_4",
+    "job_description": "Walmart eCommerce is hiring a BI Analyst to support merchandising analytics. Strong Excel, SQL, and Tableau skills required. You will work with large retail datasets and create executive-level reports. Sponsorship not available for this role."
+  },
+  {
+    "id": "mock_008",
+    "job_title": "Data Scientist",
+    "company_name": "DataRobot",
+    "location": "Remote",
+    "apify_source_url": "https://linkedin.com/jobs/mock_008",
+    "posted_at": "DAYS_AGO_1",
+    "job_description": "DataRobot is hiring a Data Scientist to help customers implement automated machine learning solutions. You should be proficient in Python, pandas, scikit-learn, and be comfortable explaining ML concepts to non-technical stakeholders. Experience with neural networks or NLP is a plus. We offer OPT and H1B sponsorship."
+  }
+]
