@@ -1,7 +1,7 @@
 # Job_Seekr — Claude Code Instructions
 
 This is a Python-native job application automation platform.
-Stack: Streamlit UI · SQLite · Groq (primary LLM) + Gemini (fallback) · Playwright (Phase 4)
+Stack: Streamlit UI · SQLite · Groq (primary LLM) + Gemini (fallback) · Playwright (PDF render + Phase 4 auto-apply)
 
 ## Project Structure
 
@@ -10,9 +10,12 @@ Job_Seekr/
 ├── app.py                    # Streamlit dashboard (entry point)
 ├── db.py                     # SQLite schema + CRUD
 ├── gemini_orchestrator.py    # LLM pipeline (Groq → Gemini fallback)
+├── tailor.py                 # Phase 2: LLM tailoring engine + Playwright PDF renderer
+├── templates/
+│   └── cv-template.html      # Phase 2: HTML resume template for Playwright
 ├── data/mock_jobs.json       # Mock job data for Phase 1/2 testing
 ├── resumes/                  # Base markdown resumes (da, ba, ai)
-├── output/                   # Generated PDFs go here
+├── output/                   # Generated PDFs + cover letters go here
 ├── requirements.txt
 ├── .env                      # API keys — never commit
 └── venv/                     # Python virtual environment
@@ -65,6 +68,20 @@ Jobs below 80% match are shown as Low Match, not hidden.
 
 **Trigger:** User says "tailor resume", "generate PDF", "create CV for [company]"
 
+### ONE PAGE — HARD CONSTRAINT
+
+**The output PDF must fit on exactly one page. This is non-negotiable.**
+
+Fitting strategy — apply in order until it fits on one page:
+1. **Compress margins** — start at 0.6in, reduce in 0.05in steps down to 0.4in minimum
+2. **Reduce font size** — body from 11px to 10px; section headers from 13px to 11px
+3. **Trim bullets** — keep each bullet to ≤ 3 line; remove lowest-priority bullets
+4. **Reduce projects shown** — drop from top 3 to top 2 if still overflowing
+
+Never go below 0.4in margin or 9.5px body font — illegible text defeats the point.
+
+**Design baseline:** Deepansh's existing DOCX resume is clean, one-page, Word-style. If the designed output is not clearly an improvement, match that style exactly — no forced "design" upgrades.
+
 ### Pipeline
 
 1. Load the assigned base resume from `resumes/{role}.md`
@@ -72,13 +89,17 @@ Jobs below 80% match are shown as Low Match, not hidden.
 3. Extract 15-20 keywords from the JD
 4. Detect role archetype → adapt framing
 5. Rewrite Professional Summary injecting top JD keywords (authentic only — never invent)
-6. Select top 3-4 most relevant projects reordered by JD relevance
-7. Reorder/reframe experience bullets using exact JD vocabulary
+6. Select top 3 most relevant projects reordered by JD relevance
+7. Reorder/reframe experience bullets using exact JD vocabulary (2-3 bullets per role)
 8. Build Core Competencies grid (6-8 keyword phrases from JD requirements)
-9. Generate HTML from template (see design spec below)
-10. Write HTML to `/tmp/cv-deepansh-{company}.html`
-11. Use Playwright to render PDF → `output/cv-deepansh-{company}-{YYYY-MM-DD}.pdf`
-12. Report: PDF path, keyword coverage %
+9. Apply ATS character normalization (see below)
+10. Render HTML using `templates/cv-template.html` with tailored data injected
+11. Write rendered HTML to `/tmp/cv-deepansh-{company}.html`
+12. Use Playwright (chromium) to render PDF:
+    - `page.pdf(format="Letter", print_background=True)`
+    - Check page count — if > 1, apply fitting strategy above and re-render
+13. Save to `output/cv-deepansh-{company}-{YYYY-MM-DD}.pdf`
+14. Report: PDF path, page count confirmed, keyword coverage %
 
 ### ATS Rules (non-negotiable)
 
@@ -105,23 +126,24 @@ text = text.replace('\u00a0', ' ')   # non-breaking space → regular space
 
 ### PDF Design Spec
 
-- **Fonts:** Space Grotesk (headings, 600-700) + DM Sans (body, 400-500)
-- **Header:** Name in Space Grotesk 24px bold + gradient line `linear-gradient(to right, hsl(187,74%,32%), hsl(270,70%,45%))` 2px + contact row
-- **Section headers:** Space Grotesk 13px, uppercase, letter-spacing 0.05em, cyan
-- **Body:** DM Sans 11px, line-height 1.5
-- **Company names:** purple `hsl(270,70%,45%)`
-- **Margins:** 0.6in
-- **Background:** pure white
+- **Fonts:** Space Grotesk (headings, 600-700) + DM Sans (body, 400-500) — via Google Fonts @import
+- **Header:** Name in Space Grotesk 24px bold + 2px gradient line `linear-gradient(to right, hsl(187,74%,32%), hsl(270,70%,45%))` + contact row (DM Sans 10px)
+- **Section headers:** Space Grotesk 12px, uppercase, letter-spacing 0.08em, color `hsl(187,74%,32%)` (teal)
+- **Body:** DM Sans 11px, line-height 1.45
+- **Company names:** bold, color `hsl(270,70%,45%)` (purple)
+- **Default margins:** 0.6in (all sides) — compress toward 0.4in minimum to fit one page
+- **Background:** pure white `#ffffff`
+- **Bullets:** `•` character, left indent 12px max
 
 ### Section Order (6-second recruiter scan optimized)
 
-1. Header (name, gradient, contact, links)
+1. Header (name, 2px gradient line, contact row: email · phone · LinkedIn · GitHub/portfolio)
 2. Professional Summary (3-4 lines, keyword-dense)
-3. Core Competencies (6-8 keyword phrases, flex-grid)
-4. Work Experience (reverse chronological)
-5. Projects (top 3-4 most relevant)
+3. Core Competencies (6-8 phrase flex-grid, 2-3 columns)
+4. Work Experience (reverse chronological, 2-3 bullets per role max)
+5. Projects (top 2-3 most relevant, 1-2 bullets each)
 6. Education & Certifications
-7. Skills
+7. Skills (single compact row or two-column grid)
 
 ### Keyword Injection — Ethical Rules
 
@@ -212,14 +234,34 @@ Examples:
 | Phase | Status | Description |
 |-------|--------|-------------|
 | 1 | ✅ Done | Triage board — OPT filter + legitimacy + semantic scoring |
-| 2 | Next | Tailoring engine — Markdown → ATS PDF + cover letter |
+| 2 | 🔨 Building | Tailoring engine — `tailor.py` + `templates/cv-template.html` + Playwright PDF |
 | 3 | Planned | Live sourcing — Apify LinkedIn actor → SQLite |
 | 4 | Planned | Auto-apply — Playwright form filling + submission |
+
+### Phase 2 Scope (confirmed)
+
+**Files to build:**
+- `tailor.py` — LLM tailoring engine (keyword extraction, summary rewrite, bullet reframing, competency grid)
+- `templates/cv-template.html` — HTML template the tailor fills in; Playwright renders it to PDF
+- Streamlit additions in `app.py` — "Tailor" button per Passed job, spinner, download link
+
+**Constraints:**
+- PDF renderer: Playwright (chromium) — already needed for Phase 4, no extra dependency
+- One page: hard constraint — margin compression is the primary lever
+- Cover letter: TBD — not yet confirmed for Phase 2 scope
+
+**New DB columns for Phase 2** (add via ALTER in `db.py`):
+- `tailored_resume_path TEXT` — path to generated PDF
+- `cover_letter_path TEXT` — path to generated cover letter (if in scope)
+- `tailor_status TEXT` — 'Pending' | 'Done' | 'Error'
 
 ## What NOT to do
 
 - Don't call Gemini/Groq directly from `app.py` — use `gemini_orchestrator.py`
+- Don't call Playwright directly from `app.py` — use `tailor.py`
 - Don't commit `.env` or `jobseeker.db`
 - Don't add features beyond the current phase without discussing first
 - Don't mock the database — use real SQLite for all testing
 - Don't change the LLM model names without checking current Groq/Gemini model availability
+- Don't fabricate the detials while tailoring resumes.
+- Ask wherever you have even a slight confusion or ambiguity.

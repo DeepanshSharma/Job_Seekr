@@ -8,7 +8,7 @@ Data Analyst with hands-on experience building data pipelines, dashboards, and s
 **Analytics & Reporting:** Power BI, Tableau, Excel (Pivot Tables, Power Query)
 **Scripting & Querying:** Python, SQL
 **Databases:** MySQL, DB2, AWS
-**Tools:** Git, Jira, Informatica MDM, Digital Ocean
+**Data & Tools:** Digital Ocean (deployment exposure), Git, Jira, Informatica MDM
 
 ## Education
 **MS Computer Science** | George Washington University | GPA: 3.6 | 2023–2025

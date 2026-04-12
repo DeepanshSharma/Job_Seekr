@@ -2,13 +2,13 @@
 deepansh2424@gmail.com
 
 ## Summary
-Data Scientist and AI Engineer with hands-on experience building ML pipelines, integrating LLM-powered automation into production workflows, and developing Python-based data systems. Comfortable working across the full stack from model training and evaluation to API integration and deployment. MS in Computer Science with coursework in Machine Learning.
+Data Scientist and AI Engineer with hands-on experience building ML pipelines, RAG-based retrieval systems, and LLM-powered automation for production workflows using Python, scikit-learn, and Gemini API. Strong focus on end-to-end delivery — from data ingestion and model evaluation to API integration and deployment. Proven ability to reduce manual effort and surface actionable intelligence from complex, unstructured data.
 
 ## Skills
 **ML & AI:** scikit-learn, TensorFlow, Keras, PCA, cross-validation, hyperparameter tuning
-**LLM & Automation:** Gemini API, LangChain, natural language SQL querying, document summarization
-**Languages & Frameworks:** Python, SQL, FastAPI, REST APIs
-**Data & Tools:** pandas, NumPy, Git, Docker (basic), AWS, Digital Ocean
+**LLM & Automation:** Gemini API, LangChain, RAG pipelines, natural language SQL, document summarization
+**Languages & Frameworks:** Python, SQL, FastAPI, REST APIs, pandas, NumPy
+**Data & Tools:** Git, Docker (basic), AWS, Digital Ocean (deployment)
 **Databases:** MySQL, DB2
 
 ## Education

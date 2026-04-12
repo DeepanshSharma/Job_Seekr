@@ -4,7 +4,7 @@
     "company_name": "Stripe",
     "job_title": "Data Analyst",
     "assigned_resume_type": "DA",
-    "posted_at": "2026-04-08",
+    "posted_at": "2026-04-11",
     "job_description": "Stripe is looking for a Data Analyst to join our Analytics team. You will build dashboards and self-service reporting tools, write complex SQL queries against large datasets, and partner with product and finance teams to surface actionable insights.\n\nResponsibilities:\n- Design and maintain Power BI and Tableau dashboards tracking key product and revenue KPIs.\n- Write clean, efficient SQL across MySQL and PostgreSQL to answer business questions.\n- Build and maintain Python-based ETL pipelines that ingest data from internal REST APIs.\n- Own data quality checks and validation frameworks for critical reporting pipelines.\n- Collaborate with cross-functional teams to define metrics and translate business questions into data models.\n\nRequirements:\n- 2+ years of experience in a data analyst or analytics engineer role.\n- Strong SQL skills; Python proficiency (pandas, numpy).\n- Experience with BI tools: Power BI or Tableau.\n- Familiarity with cloud data warehouses (AWS Redshift, Snowflake).\n- Excellent communication skills and ability to present findings to non-technical stakeholders.\n\nStripe is an equal opportunity employer. We actively support visa sponsorship including H-1B transfers and OPT/CPT candidates are welcome to apply."
   },
   {
@@ -12,7 +12,7 @@
     "company_name": "Deloitte",
     "job_title": "Business Analyst",
     "assigned_resume_type": "BA",
-    "posted_at": "2026-04-09",
+    "posted_at": "2026-04-11",
     "job_description": "Deloitte Consulting is seeking a Business Analyst to support digital transformation engagements for our public and private sector clients. You will act as the bridge between business stakeholders and technical delivery teams.\n\nResponsibilities:\n- Conduct stakeholder interviews and workshops to elicit, document, and validate business requirements.\n- Produce business requirements documents (BRDs), process flow diagrams, and use case documentation.\n- Develop Power BI and Excel-based reporting solutions to track project KPIs and client deliverables.\n- Identify process inefficiencies and recommend improvements, quantifying expected impact.\n- Support UAT planning and execution by creating test scripts and coordinating with QA teams.\n\nRequirements:\n- 2+ years of BA experience in a consulting or enterprise environment.\n- Strong proficiency in SQL for data querying and validation.\n- Experience with Jira for backlog management and agile delivery.\n- Excellent written and verbal communication; skilled at presenting findings to senior stakeholders.\n- Power BI or Tableau experience preferred.\n\nDeloitte is committed to diversity and inclusion. We do not discriminate on the basis of immigration status and are open to sponsoring work authorization for qualified candidates."
   },
   {
@@ -28,7 +28,7 @@
     "company_name": "Federal Reserve Board",
     "job_title": "Data Analyst",
     "assigned_resume_type": "DA",
-    "posted_at": "2026-04-08",
+    "posted_at": "2026-04-12",
     "job_description": "The Federal Reserve Board is seeking a Data Analyst to support economic research and regulatory reporting. The role involves working with large financial datasets and producing reports for internal and external stakeholders.\n\nResponsibilities:\n- Query and analyze large financial and regulatory datasets using SQL and Python.\n- Build dashboards in Tableau and Excel to track economic indicators.\n- Produce written analysis and data summaries for senior economists and board members.\n- Maintain data pipelines that feed into regulatory reporting systems.\n\nRequirements:\n- Bachelor's or Master's degree in Economics, Statistics, Computer Science, or related field.\n- Proficiency in SQL and Python (pandas).\n- Experience with Tableau or Power BI.\n- Strong analytical and communication skills.\n\nIMPORTANT: This position requires U.S. Citizenship. We are unable to consider candidates who require visa sponsorship now or in the future. Only U.S. citizens are eligible to apply."
   },
   {
@@ -36,7 +36,7 @@
     "company_name": "DataBricks",
     "job_title": "Data Engineer / Analyst",
     "assigned_resume_type": "DA",
-    "posted_at": "2026-04-09",
+    "posted_at": "2026-04-11",
     "job_description": "Databricks is seeking a Data Engineer / Analyst with deep expertise in the Databricks Lakehouse Platform to join our internal data team. This role is heavily focused on large-scale data engineering using Apache Spark and Delta Lake.\n\nResponsibilities:\n- Design, build, and optimize large-scale data pipelines using Apache Spark and Delta Lake on Databricks.\n- Write performant Spark SQL and PySpark code to process petabyte-scale datasets.\n- Build and maintain streaming data pipelines using Apache Kafka and Databricks Structured Streaming.\n- Develop data models in Scala or Python for downstream analytics consumption.\n- Implement CI/CD for data pipelines using dbt and Databricks Asset Bundles.\n\nRequirements:\n- 3+ years of hands-on experience with Apache Spark (PySpark or Scala).\n- Deep familiarity with Databricks platform: Unity Catalog, Delta Lake, MLflow.\n- Experience with streaming systems (Kafka, Kinesis).\n- Proficiency in dbt for data transformation.\n- Strong knowledge of distributed systems and data architecture patterns.\n\nDatabricks is an equal opportunity employer and will consider sponsoring H-1B visas for exceptional candidates."
   },
   {
@@ -44,7 +44,7 @@
     "company_name": "Google DeepMind",
     "job_title": "ML Engineer",
     "assigned_resume_type": "AI",
-    "posted_at": "2026-03-29",
+    "posted_at": "2026-04-12",
     "job_description": "Google DeepMind is looking for an ML Engineer to work on large-scale model training and evaluation infrastructure. You will design distributed training pipelines, implement novel architectures in JAX and PyTorch, and optimize inference for production serving.\n\nResponsibilities:\n- Implement and optimize large-scale neural network architectures using JAX and PyTorch.\n- Build distributed training systems that scale across thousands of TPU/GPU cores.\n- Design model evaluation frameworks and run large-scale ablation studies.\n- Contribute to research publications and prototype new AI capabilities.\n\nRequirements:\n- PhD or MS in Machine Learning, Computer Science, or related field.\n- Expert-level proficiency in JAX or PyTorch for large-scale model development.\n- Deep understanding of transformer architectures, RLHF, and modern LLM training.\n- Experience with distributed computing frameworks (XLA, NCCL).\n- Strong publication record at top ML venues (NeurIPS, ICML, ICLR) preferred.\n\nGoogle is an equal opportunity employer and supports visa sponsorship for qualified candidates."
   },
   {
@@ -52,7 +52,7 @@
     "company_name": "Nike",
     "job_title": "Business Analyst, Digital Product",
     "assigned_resume_type": "BA",
-    "posted_at": "2026-04-08",
+    "posted_at": "2026-04-11",
     "job_description": "Nike's Digital Product team is looking for a Business Analyst to support our consumer-facing e-commerce and mobile app initiatives. You will be embedded in agile squads, translating consumer and business needs into product requirements.\n\nResponsibilities:\n- Partner with Product Managers to write detailed user stories, acceptance criteria, and epics in Jira.\n- Facilitate backlog grooming, sprint planning, and retrospectives as a BA embedded in agile squads.\n- Analyze consumer behavior data to identify drop-off points and optimization opportunities in the digital funnel.\n- Create wireframes and workflow diagrams to communicate requirements to engineering and design.\n- Track product KPIs post-launch and produce stakeholder reports.\n\nRequirements:\n- 2+ years of BA experience in a digital product or e-commerce environment.\n- Strong proficiency in Jira and Confluence for agile delivery management.\n- Experience writing user stories and working in Scrum/SAFe methodologies.\n- Familiarity with Google Analytics, Mixpanel, or similar product analytics tools.\n- SQL skills for self-service data pulls.\n\nNike embraces diversity. We are authorized to sponsor work visas for candidates who meet our qualifications."
   },
   {
@@ -60,7 +60,7 @@
     "company_name": "Palantir Technologies",
     "job_title": "Data Scientist",
     "assigned_resume_type": "AI",
-    "posted_at": "2026-04-09",
+    "posted_at": "2026-04-12",
     "job_description": "Palantir Technologies is seeking a Data Scientist to support defense and intelligence community customers. You will build predictive models and data pipelines on classified government data systems.\n\nResponsibilities:\n- Develop machine learning models to support mission-critical analytics for defense clients.\n- Build and maintain data pipelines on classified networks using Python and SQL.\n- Work directly with cleared government personnel to translate operational requirements into ML solutions.\n- Present findings and model outputs to senior government officials.\n\nRequirements:\n- MS or PhD in Computer Science, Data Science, Mathematics, or related technical field.\n- Strong Python and SQL skills.\n- Experience with scikit-learn, TensorFlow, or PyTorch.\n- Must be a U.S. Citizen. Active Secret or Top Secret/SCI security clearance required or ability to obtain one. Visa sponsorship is not available for this position under any circumstances."
   }
 ]

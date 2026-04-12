@@ -43,6 +43,17 @@ def init_db():
         except Exception:
             pass
 
+    # Phase 2 columns
+    for col_def in (
+        "tailored_resume_path TEXT",
+        "tailor_status TEXT DEFAULT 'Pending'",
+        "tailored_match_score REAL",
+    ):
+        try:
+            c.execute(f"ALTER TABLE jobs ADD COLUMN {col_def}")
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 
@@ -134,3 +145,49 @@ def clear_jobs():
     c.execute("DELETE FROM jobs")
     conn.commit()
     conn.close()
+
+
+# ── Phase 2 — Tailoring ──────────────────────────────────────────────────────
+
+def get_job_by_id(job_id: int) -> dict | None:
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
+    row = c.fetchone()
+    cols = [d[0] for d in c.description]
+    conn.close()
+    return dict(zip(cols, row)) if row else None
+
+
+def update_tailor_result(
+    job_id: int,
+    pdf_path: str,
+    status: str = "Done",
+    tailored_score: float | None = None,
+):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute(
+        """UPDATE jobs
+           SET tailored_resume_path = ?,
+               tailor_status        = ?,
+               tailored_match_score = ?
+           WHERE id = ?""",
+        (pdf_path, status, tailored_score, job_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_tailor_status(job_id: int) -> dict:
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute(
+        "SELECT tailor_status, tailored_resume_path FROM jobs WHERE id = ?",
+        (job_id,),
+    )
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        return {"tailor_status": None, "tailored_resume_path": None}
+    return {"tailor_status": row[0], "tailored_resume_path": row[1]}

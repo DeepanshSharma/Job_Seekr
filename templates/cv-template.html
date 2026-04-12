@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>@@NAME@@ - Resume</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=DM+Sans:ital,wght@0,400;0,500;1,400&display=swap');
+
+    @page {
+      size: Letter;
+      margin: @@MARGIN@@in;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      font-size: @@BODY_FONT@@px;
+      line-height: 1.45;
+      color: #1a1a1a;
+      background: #ffffff;
+    }
+
+    /* ── Header ── */
+    .header {
+      margin-bottom: 9px;
+    }
+
+    .header h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+      letter-spacing: -0.02em;
+    }
+
+    .gradient-line {
+      height: 2px;
+      background: linear-gradient(to right, hsl(187, 74%, 32%), hsl(270, 70%, 45%));
+      margin-bottom: 5px;
+    }
+
+    .contact {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      color: #555;
+    }
+
+    /* ── Section headers ── */
+    h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: @@HEADER_FONT@@px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: hsl(187, 74%, 32%);
+      margin-top: 9px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid hsl(187, 74%, 80%);
+      padding-bottom: 2px;
+    }
+
+    /* ── Summary ── */
+    .summary p {
+      margin: 0;
+    }
+
+    /* ── Experience ── */
+    .role {
+      margin-bottom: 7px;
+    }
+
+    .role-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .role-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .role-title {
+      font-weight: 500;
+    }
+
+    .role-company {
+      font-weight: 700;
+      color: hsl(270, 70%, 45%);
+    }
+
+    .role-location {
+      color: #666;
+    }
+
+    .role-dates {
+      font-size: @@SMALL_FONT@@px;
+      color: #666;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    ul {
+      list-style: none;
+      padding-left: 12px;
+      margin-top: 2px;
+    }
+
+    ul li {
+      margin-bottom: 1px;
+      padding-left: 0;
+    }
+
+    ul li::before {
+      content: '\2022  ';
+      color: #444;
+    }
+
+    /* ── Projects ── */
+    .project {
+      margin-bottom: 6px;
+    }
+
+    .project-name {
+      font-weight: 600;
+    }
+
+    /* ── Skills ── */
+    .skills {
+      color: #333;
+      line-height: 1.6;
+    }
+
+    /* ── Education ── */
+    .education-entry {
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>@@NAME@@</h1>
+    <div class="gradient-line"></div>
+    <div class="contact">@@EMAIL@@ &nbsp;&middot;&nbsp; @@PHONE@@ &nbsp;&middot;&nbsp; @@LINKEDIN@@ &nbsp;&middot;&nbsp; @@GITHUB@@</div>
+  </div>
+
+  <!-- Summary -->
+  <section class="summary">
+    <h2>Summary</h2>
+    <p>@@SUMMARY@@</p>
+  </section>
+
+  <!-- Skills -->
+  <section>
+    <h2>Skills</h2>
+    <div class="skills">@@SKILLS@@</div>
+  </section>
+
+  <!-- Education -->
+  <section>
+    <h2>Education</h2>
+    @@EDUCATION@@
+  </section>
+
+  <!-- Experience -->
+  <section>
+    <h2>Experience</h2>
+    @@EXPERIENCE@@
+  </section>
+
+  <!-- Projects -->
+  <section>
+    <h2>Projects</h2>
+    @@PROJECTS@@
+  </section>
+
+</body>
+</html>

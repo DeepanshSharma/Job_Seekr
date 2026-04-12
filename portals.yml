@@ -1,0 +1,70 @@
+# Career-Ops Style Portal Definitions
+# Track A Targets: Mid-sized, Scale-ups, and High-Growth Companies
+# Focus: Data Analyst, AI Engineer, and Business Analyst roles (PAN America)
+
+greenhouse:
+  # --- Healthcare & HealthTech (Scale-ups & Mid-Size) ---
+  - flatironhealth       # Oncology Data
+  - tempus               # Precision medicine & AI
+  - ro                   # Telehealth
+  - zocdoc               # Healthcare marketplace
+  - noom                 # Health/Wellness app (Data heavy)
+  - khealth              # AI Health Assistant
+  - calm                 # Mental health metrics
+  - komodohealth         # Healthcare data mapping
+  - outsetmedical        # MedTech
+
+  # --- FinTech & Finance (Mid-Size & Scale-ups) ---
+  - stripe               # FinTech Giant (included for volume)
+  - chime                # Neobank (Massive Data Analyst hiring)
+  - wealthfront          # Algorithmic wealth management
+  - gusto                # HR/Payroll FinTech
+  - mercury              # Banking for startups
+  - ramp                 # Spend management (Aggressive AI)
+  - robinhood            # Retail trading
+  - coinbase             # Blockchain analytics
+  - hudsonrivertrading   # Quant trading (Great entry level Data/AI)
+
+  # --- Core Data Infrastructure & Developer Tools ---
+  - fivetran             # Data integration pipelines
+  - weightsandbiases     # ML developer tools
+  - astronomer           # Apache Airflow orchestration
+  - dbtlabs              # Data transformation tooling
+  - scaleai              # AI training data
+  - huggingface          # Open source ML ecosystem
+
+  # --- E-Commerce, Consumer, & Logistics (Mid-Size) ---
+  - instacart            # Grocery tech (Excellent for early-career ML/DA)
+  - flexport             # AI-driven global logistics
+  - goat                 # E-commerce marketplace
+  - glossier             # Direct-to-consumer data models
+  - patreon              # Creator economy metrics
+
+  # --- Security & Infrastructure (Mid-Size) ---
+  - cloudflare           # Web infrastructure analytics
+  - crowdstrike          # Cybersecurity AI
+  - okta                 # Identity data
+
+  # --- EdTech (Mid-Size) ---
+  - duolingo             # AI-driven language learning
+  - masterclass          # E-learning engagement metrics
+
+lever:
+  # --- Across Multiple Categories ---
+  - benchling            # Biotech R&D cloud
+  - color                # Population genomics
+  - brex                 # FinTech corporate cards
+  - betterment           # FinTech investing
+  - marqeta              # Card issuing APIs
+  - mode                 # Data analytics platform
+  - retool               # Internal developer tools
+  - coursera             # EdTech analytics
+  - figma                # Collaborative design data
+  - cohere               # Enterprise NLP AI
+
+ashby:
+  # --- Agile Startups & Mid-Size Scale-ups ---
+  - notion               # Heavy AI product integration
+  - rippling             # HR/FinTech (Massive Analytics needs)
+  - hightouch            # Data Activation / Reverse ETL
+  - linear               # Developer tools (Data focused)

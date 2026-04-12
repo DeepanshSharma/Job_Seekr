@@ -14,7 +14,9 @@ We optimize for local, single-language development to ensure rapid integration o
 - **Auto-Apply Worker:** Playwright for Python.
 
 ## The 5-Step Pipeline
-1. **Sourcing:** Apify runs on a schedule pulling jobs (filtered for <24h posted time) directly into SQLite.
+1. **Sourcing (Track A & Track B):**
+   - **Track A (The Sniper):** Runs hourly, querying direct ATS JSON APIs (e.g., Greenhouse, Lever) from a highly curated `portals.yml` list of F1-OPT friendly target companies. 
+   - **Track B (The Net):** Runs daily using the Apify LinkedIn Actor to catch border roles scattered across the web.
 2. **Quality Gate (F1-OPT):** The Python backend immediately queries Gemini using the raw JD: *"Does this ban international applicants?"*. Fails are rejected automatically.
 3. **Semantic Scoring:** For passing jobs, Gemini is provided the JD and the user's base Markdown resume. It outputs a match confidence score (0-100%). Anything `< 80%` is hidden from the UI.
 4. **Tailoring:** On the Streamlit Dashboard, clicking "Tailor Resume" triggers Gemini to rewrite the base markdown bullet points to securely inject missing JD keywords, raising the actual match percentage. It outputs a clean PDF and a Cover Letter.

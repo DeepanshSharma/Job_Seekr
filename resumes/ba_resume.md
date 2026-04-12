@@ -6,10 +6,10 @@ Business Analyst with experience translating complex business requirements into 
 
 ## Skills
 **Business Analysis:** Requirements Gathering, Stakeholder Management, Process Documentation, KPI Definition
-**Reporting & Visualization:** Power BI, Tableau, Excel (Pivot Tables, Power Query)
+**Reporting & Visualization:** Power BI (DAX, Data Modelling), Tableau, Excel (Pivot Tables, Power Query)
 **Querying & Scripting:** SQL, Python
-**Tools:** Jira, Git, Informatica MDM, DB2
-**Databases:** MySQL, DB2, AWS
+**Databases:** MySQL, DB2
+**Data & Tools:** Digital Ocean (deployment exposure), Git, Jira, Informatica MDM
 
 ## Education
 **MS Computer Science** | George Washington University | GPA: 3.6 | 2023–2025
