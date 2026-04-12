@@ -1,34 +1,28 @@
-# Job_Seekr - Overall Architecture & Application Plan
+# Job_Seekr V2 - Overall Architecture & Execution Plan
 
-This document serves as the "North Star" for the Job_Seekr platform. It maps out the long-term goals and architecture. Specific phase-by-phase execution details belong in their respective `phase_X_plan.md` files.
+This document serves as the global blueprint for the Job_Seekr platform using the "Simplest & Most Robust" Python architecture. Specific execution details for the current phase are kept in `phase_1_plan.md`.
 
-## 1. Core Logic & F1-OPT Filtering
-The platform is built with International Student constraints as a priority.
-- **Sponsorship Filter:** A lightweight LLM (or regex) will read raw Job Descriptions (JDs) and immediately reject jobs hinting at "Citizens only", "No Sponsorship", or "Green Card required".
-- **The "Edge" Score:** Passed jobs will be assigned an Edge Score factoring in local proximity, university matches, or specific tech stack dominance to prioritize them.
+## Core Vision
+Build a highly viable, private, cost-free alternative to AIApply.com. It acts as an orchestrator that pulls fresh jobs, strictly filters out non-sponsoring roles (F1-OPT constraint), semantically scores the matches, customizes the resume against the job description using an LLM, and auto-applies via browser automation.
 
-## 2. Multi-Resume Routing & Priority Pools
-Users will apply to different tier companies with different strategies.
-- **Resume Hub:** The system stores multiple variants (e.g., Data Analyst, BA, AI Engineer). The incoming job is mapped to the most relevant resume.
-- **Priority Tier 1 (Top Tech/Dream Jobs):** Flagged for manual review or highly-tailored PDF generation. No blanket auto-applying here.
-- **Priority Tier 2 (Mid-size):** Light tailoring of the resume/summary before auto-applying.
-- **Priority Tier 3 (Broad Cast):** Blanket auto-apply using the mapped resume template.
+## Technology Stack (Python-Native)
+We optimize for local, single-language development to ensure rapid integration of AI and web-automation:
+- **UI / Frontend:** Streamlit (Pure Python interactive UI).
+- **Backend / Brain:** Python integrated with Google Gemini API (Free Tier).
+- **Database:** SQLite (Local, zero-config relational).
+- **Sourcing:** Apify LinkedIn Actor (Safely pulls job feeds).
+- **Auto-Apply Worker:** Playwright for Python.
 
-## 3. Automation Engine & Sourcing
-- **Sourcing:** Use **Apify Actors** to ingest job posts securely from LinkedIn/Indeed without triggering anti-bot constraints.
-- **Simple Auto-Apply (Single Page Apps):** Quick Playwright automation mapping exact fields for platforms like Lever or Greenhouse.
-- **Complex Auto-Apply (Multi-Page ATS like Workday):** Uses a Multi-Agent structural approach where a premium LLM reads the DOM step-by-step to progress through complex application wizards.
-- **Email Verification Handshake:** For applications requiring account setup, we will use your **primary personal email** so you can seamlessly track all follow-up employer communications. The system will use the Gmail API via a scoped integration to quietly extract verification PINs/magic links in real time during the auto-apply flow.
+## The 5-Step Pipeline
+1. **Sourcing:** Apify runs on a schedule pulling jobs (filtered for <24h posted time) directly into SQLite.
+2. **Quality Gate (F1-OPT):** The Python backend immediately queries Gemini using the raw JD: *"Does this ban international applicants?"*. Fails are rejected automatically.
+3. **Semantic Scoring:** For passing jobs, Gemini is provided the JD and the user's base Markdown resume. It outputs a match confidence score (0-100%). Anything `< 80%` is hidden from the UI.
+4. **Tailoring:** On the Streamlit Dashboard, clicking "Tailor Resume" triggers Gemini to rewrite the base markdown bullet points to securely inject missing JD keywords, raising the actual match percentage. It outputs a clean PDF and a Cover Letter.
+5. **Auto-Apply Automation:** A background Playwright script consumes the Tailored PDF, logs into LinkedIn, navigates to the specific Easy Apply URL, uses the LLM to complete any complex form questions, and submits.
 
-## 4. Technology Stack & Free-Tier Strategy
-We are optimizing for zero or negligible running costs:
-- **Frontend:** Next.js (React).
-- **Backend & Brain:** Python/FastAPI integrating LLMs via **LangChain and LangGraph** (LangGraph is essential here for orchestrating the stateful, cyclical "Observe -> Act -> Evaluate" multi-agent navigation flow for complex ATS systems).
-- **Database:** Supabase (PostgreSQL) + Auth (Free Tier).
-- **Sourcing API:** Apify (Leveraging the free $5/mo recurring credit for personal scraping).
-- **LLM APIs:** 
-  - Primary Reasoning (LangGraph agents): **Gemini API** via Google AI Studio (generous free tier).
-  - Fast Extraction (JSON formatting, OPT filtering): **Groq** (free fast inference) or Local **Ollama** if preferred.
-
----
-*Note: We iterate through this plan phase by phase. Do not begin work on subsequent phases until the current phase is firmly validated.*
+## Macroscopic Execution Strategy
+*We only execute one phase at a time. Do not jump to automation before the UI data layer is pristine.*
+- **Phase 1:** UI, SQLite DB, and Semantic Matching Engine (using mock Apify data).
+- **Phase 2:** The Tailoring Engine (Markdown to PDF conversion + Cover Letters).
+- **Phase 3:** Sourcing (Connecting the live Apify pipeline).
+- **Phase 4:** Auto-Apply Automation (Playwright integration).

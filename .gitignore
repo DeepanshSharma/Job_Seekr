@@ -5,8 +5,12 @@
 !.env.example
 
 # Python
+venv/
 backend/venv/
 __pycache__/
+
+# SQLite database
+jobseeker.db
 *.pyc
 *.pyo
 .pytest_cache/
