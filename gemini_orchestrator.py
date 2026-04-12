@@ -34,14 +34,23 @@ _DRY_RUN_OPT = {
     "Nike":                  (False, "Authorized to sponsor work visas"),
     "Palantir Technologies": (True,  "Requires U.S. Citizenship + security clearance; no sponsorship"),
 }
-_DRY_RUN_SCORES = {
-    "Stripe":                (84, "Strong SQL/Python/Power BI match; ETL pipeline experience aligns well"),
-    "Deloitte":              (86, "Solid BA match: stakeholder management, KPI reporting, SQL, Jira"),
-    "Cohere":                (76, "Good Python/ML overlap; lacks deep RAG production experience"),
-    "DataBricks":            (48, "Missing core Spark/PySpark/Scala and Databricks platform depth"),
-    "Google DeepMind":       (55, "ML background present but lacks JAX/PyTorch at scale and PhD-level research"),
-    "Nike":                  (65, "Partial BA match; lacks Scrum/SAFe and product analytics tool experience"),
-    "Palantir Technologies": (70, "ML skills match but clearance/citizenship requirement is a hard block"),
+_DRY_RUN_FIT = {
+    "Stripe":                (82, "DA experience with ETL, SQL dashboards, and analytics engineering maps well conceptually; cloud data warehouse depth (Redshift/Snowflake) is a genuine gap"),
+    "Deloitte":              (88, "Stakeholder management, requirements gathering, KPI reporting, and Power BI all demonstrated; formal BRD authorship and UAT leadership less evident"),
+    "Cohere":                (74, "Python/ML/LLM integration background conceptually relevant; lacks production RAG pipeline depth and LangChain/vector-DB hands-on experience"),
+    "DataBricks":            (40, "Core Spark/PySpark/Delta Lake expertise genuinely absent; SQL and Python present but at wrong scale and toolchain for this role"),
+    "Google DeepMind":       (45, "ML background present but lacks JAX, large-scale distributed training, and research publication record; significant seniority gap"),
+    "Nike":                  (62, "Partial BA match; consumer digital product, Scrum/SAFe, and product analytics tools (Mixpanel, GA) genuinely missing"),
+    "Palantir Technologies": (68, "ML and Python skills map to the DS role conceptually; cleared government customer context is a genuine experience gap"),
+}
+_DRY_RUN_ATS = {
+    "Stripe":                (86, "SQL, Python, Power BI, ETL pipeline, REST API, data quality keywords present; Redshift/Snowflake/pandas not mentioned"),
+    "Deloitte":              (84, "SQL, Power BI, Jira, stakeholder management surface-match well; BRD, UAT, use case documentation terminology absent"),
+    "Cohere":                (78, "Python, scikit-learn, TensorFlow, FastAPI, REST API match; LangChain, RAG, vector database terms absent"),
+    "DataBricks":            (52, "SQL, Python present; PySpark, Spark, Delta Lake, Kafka, dbt, Scala all absent"),
+    "Google DeepMind":       (60, "ML, Python, scikit-learn, TensorFlow present; JAX, PyTorch, RLHF, transformer, XLA all absent"),
+    "Nike":                  (68, "SQL, Power BI, Jira, stakeholder management present; Google Analytics, Mixpanel, Scrum, SAFe, user stories absent"),
+    "Palantir Technologies": (72, "Python, SQL, scikit-learn, TensorFlow present; clearance, defense sector, Palantir platform terminology absent"),
 }
 
 # Legitimacy: High Confidence / Proceed with Caution / Suspicious
@@ -173,14 +182,56 @@ Job Description:
     return bool(result.get("denied")), result.get("reason", "")
 
 
-def _score_resume(company: str, jd: str, resume: str) -> tuple[int, str]:
+def _fit_check(company: str, jd: str, resume: str) -> tuple[int, str]:
+    """
+    Recruiter-lens evaluation: does the candidate's actual experience
+    conceptually demonstrate what this role needs, even with different vocab?
+    """
     if DRY_RUN:
-        return _DRY_RUN_SCORES.get(company, (60, "dry-run: default score"))
+        return _DRY_RUN_FIT.get(company, (65, "dry-run: default fit score"))
 
-    prompt = f"""You are an ATS. Score this resume against the job description from 0 to 100 based solely on alignment of core hard skills, relevant experience, and qualifications. Be strict and realistic.
+    prompt = f"""You are a senior technical recruiter evaluating conceptual fit — not keyword matching.
+
+For each core requirement in this job description, assess whether the candidate's actual experience genuinely demonstrates that competency, even when different terminology is used.
+
+Ask yourself:
+- Does the candidate's work history show they can actually do this job?
+- Are their seniority and depth appropriate for this role?
+- What genuine skill or experience gaps exist that vocabulary changes cannot fix?
+
+Score 0-100 on conceptual alignment. Be realistic and strict — strong presentation of the wrong skills still scores low.
 
 Return ONLY a JSON object:
-{{"score": 75, "reason": "brief reason"}}
+{{"score": 82, "reason": "1-2 sentences covering key conceptual strengths and any real gaps"}}
+
+Job Description:
+{jd}
+
+Resume:
+{resume}"""
+    result, _ = _call_llm(prompt)
+    return int(result.get("score", 0)), result.get("reason", "")
+
+
+def _ats_check(company: str, jd: str, resume: str) -> tuple[int, str]:
+    """
+    ATS-lens evaluation: surface-level keyword and qualification overlap.
+    """
+    if DRY_RUN:
+        return _DRY_RUN_ATS.get(company, (65, "dry-run: default ATS score"))
+
+    prompt = f"""You are an ATS scanner evaluating keyword and qualification surface match.
+
+Check for:
+- Exact or near-exact skill and tool name matches
+- Years of experience requirements met
+- Required qualifications present (degree, certifications)
+- Specific technologies and methodologies named in the JD present in the resume
+
+Score 0-100 on surface-level overlap only. Do not infer intent — if a term is absent, it is absent.
+
+Return ONLY a JSON object:
+{{"score": 71, "reason": "brief list of key matches and missing terms"}}
 
 Job Description:
 {jd}
@@ -230,7 +281,7 @@ def run_pipeline() -> dict:
         except Exception as e:
             leg_label, leg_reason = "Unknown", f"Legitimacy check failed: {e}"
 
-        # Stage 4 — Semantic scoring
+        # Stage 4 — Dual scoring: fit check (recruiter lens) + ATS check (keyword lens)
         resume_content = get_resume(role)
         if not resume_content:
             insert_job({**job, "status": "Error", "filter_reason": f"No resume for role: {role}"})
@@ -238,20 +289,32 @@ def run_pipeline() -> dict:
             continue
 
         try:
-            score, score_reason = _score_resume(company, jd, resume_content)
+            fit_score, fit_reason = _fit_check(company, jd, resume_content)
+            ats_score, ats_reason = _ats_check(company, jd, resume_content)
         except Exception as e:
             insert_job({**job, "status": "Error", "filter_reason": f"Scoring failed: {e}",
                         "legitimacy_label": leg_label, "legitimacy_reason": leg_reason})
             counts["errored"] += 1
             continue
 
-        if score >= SCORE_THRESHOLD:
-            insert_job({**job, "status": "Passed", "match_score": score, "filter_reason": score_reason,
-                        "legitimacy_label": leg_label, "legitimacy_reason": leg_reason})
+        # Combined score: fit weighted higher (60/40) — conceptual match matters more
+        match_score  = round(0.7 * fit_score + 0.3 * ats_score)
+        score_reason = f"Fit: {fit_score}% — {fit_reason} | ATS: {ats_score}% — {ats_reason}"
+
+        base = {
+            **job,
+            "match_score": match_score,
+            "fit_score":   fit_score,
+            "ats_score":   ats_score,
+            "filter_reason": score_reason,
+            "legitimacy_label":  leg_label,
+            "legitimacy_reason": leg_reason,
+        }
+        if match_score >= SCORE_THRESHOLD:
+            insert_job({**base, "status": "Passed"})
             counts["passed"] += 1
         else:
-            insert_job({**job, "status": "Low Match", "match_score": score, "filter_reason": score_reason,
-                        "legitimacy_label": leg_label, "legitimacy_reason": leg_reason})
+            insert_job({**base, "status": "Low Match"})
             counts["low_match"] += 1
 
     return counts

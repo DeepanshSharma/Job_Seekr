@@ -45,8 +45,10 @@ def init_db():
 
     # Phase 2 columns
     for col_def in (
+        "fit_score            REAL",
+        "ats_score            REAL",
         "tailored_resume_path TEXT",
-        "tailor_status TEXT DEFAULT 'Pending'",
+        "tailor_status        TEXT DEFAULT 'Pending'",
         "tailored_match_score REAL",
     ):
         try:
@@ -103,9 +105,10 @@ def insert_job(job: dict):
     c.execute(
         """INSERT INTO jobs
                (apify_url, company_name, job_title, job_description,
-                posted_at, status, match_score, legitimacy_label,
-                legitimacy_reason, assigned_resume_type, filter_reason)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                posted_at, status, match_score, fit_score, ats_score,
+                legitimacy_label, legitimacy_reason,
+                assigned_resume_type, filter_reason)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             job.get("apify_url"),
             job.get("company_name"),
@@ -114,6 +117,8 @@ def insert_job(job: dict):
             job.get("posted_at"),
             job.get("status", "Pending"),
             job.get("match_score"),
+            job.get("fit_score"),
+            job.get("ats_score"),
             job.get("legitimacy_label"),
             job.get("legitimacy_reason"),
             job.get("assigned_resume_type"),

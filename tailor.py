@@ -22,7 +22,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from db import get_job_by_id, get_resume, update_tailor_result
-from gemini_orchestrator import DRY_RUN, _call_llm, _score_resume
+from gemini_orchestrator import DRY_RUN, _ats_check, _call_llm, _fit_check
 
 load_dotenv()
 
@@ -153,48 +153,128 @@ def parse_resume(resume_md: str) -> dict:
 
 # ── LLM tailoring functions ───────────────────────────────────────────────────
 
-def extract_keywords(jd: str) -> list[str]:
-    """Extract 15-20 high-value ATS keywords from the JD."""
-    if DRY_RUN:
-        return list(_DRY_KEYWORDS)
+# DRY_RUN fit map — used when DRY_RUN=true to skip the analyze_fit LLM call
+_DRY_FIT_MAP = {
+    "competency_map": [
+        {
+            "competency": "Data analysis and reporting",
+            "demonstrated_by": "Built SQL dashboards and analytics pipelines at American Witness and Alstom",
+            "jd_term": "data analysis",
+        },
+        {
+            "competency": "ETL pipeline development",
+            "demonstrated_by": "Engineered Python and SQL ingestion pipelines integrating REST APIs at American Witness",
+            "jd_term": "ETL pipelines",
+        },
+        {
+            "competency": "Stakeholder communication",
+            "demonstrated_by": "Presented data-driven insights to editorial and engineering teams; partnered with cross-functional stakeholders at Alstom",
+            "jd_term": "stakeholder management",
+        },
+        {
+            "competency": "KPI tracking and dashboarding",
+            "demonstrated_by": "Power BI dashboards tracking work orders and KPIs at Alstom; spatial analytics dashboards at American Witness",
+            "jd_term": "KPI tracking",
+        },
+        {
+            "competency": "Process automation",
+            "demonstrated_by": "Automated reporting workflows using Python and VBScript at Alstom, reducing cycle time 50%",
+            "jd_term": "process optimization",
+        },
+    ],
+    "gaps": ["cloud data warehouse (Redshift/Snowflake)", "Scrum/SAFe formal methodology"],
+    "ats_keywords": [
+        "data analysis", "SQL", "Python", "Power BI", "ETL pipelines",
+        "stakeholder management", "KPI tracking", "data visualization",
+        "dashboard development", "business intelligence", "data quality",
+        "cross-functional collaboration", "requirements gathering",
+        "process optimization", "reporting automation",
+    ],
+}
 
-    prompt = f"""Extract 15-20 high-value ATS keywords from this job description.
-Focus on: technical skills, tools, methodologies, domain terms, and role-specific soft skills.
-Prefer multi-word phrases over single words where possible.
+
+def analyze_fit(jd: str, resume_md: str) -> dict:
+    """
+    Single LLM call that produces a structured fit map:
+      - competency_map: what the role needs → what in the CV demonstrates it → JD term to use
+      - gaps: genuine skill gaps that honest tailoring cannot fix
+      - ats_keywords: exact JD terms the resume should contain
+
+    This replaces keyword extraction. All downstream tailoring is grounded in
+    real demonstrated experience, not surface keywords.
+    """
+    if DRY_RUN:
+        return _DRY_FIT_MAP
+
+    prompt = f"""You are a senior recruiter analyzing a candidate's fit for a role.
+
+Step 1 — Identify the 4-6 core competencies this role genuinely requires.
+Step 2 — For each competency, find specific evidence in the resume that demonstrates it.
+         Cite the candidate's actual work — real job, real outcome. If no evidence exists, it is a gap.
+Step 3 — List 12-15 exact ATS keywords (specific terms from the JD) that a tailored resume should contain.
+Step 4 — List only genuine gaps: skills or depth the candidate truly lacks that vocabulary changes cannot fix.
+         Do NOT list vocabulary differences as gaps (e.g., "ETL pipelines" vs "data pipelines" is NOT a gap).
 
 Return ONLY a JSON object:
-{{"keywords": ["keyword1", "keyword2", ...]}}
+{{
+  "competency_map": [
+    {{
+      "competency": "ETL pipeline development",
+      "demonstrated_by": "specific evidence from resume, or null if absent",
+      "jd_term": "exact phrase from the JD to use"
+    }}
+  ],
+  "gaps": ["genuine missing skill or experience"],
+  "ats_keywords": ["exact JD term 1", "exact JD term 2"]
+}}
+
+Resume:
+{resume_md}
 
 Job Description:
 {jd}"""
     result, _ = _call_llm(prompt)
-    return result.get("keywords", list(_DRY_KEYWORDS[:15]))
+    # Validate structure; fall back to dry-run map if malformed
+    if "competency_map" not in result or "ats_keywords" not in result:
+        return _DRY_FIT_MAP
+    return result
 
 
-def rewrite_summary(base_summary: str, jd: str, keywords: list[str]) -> str:
-    """Rewrite the Summary injecting top JD keywords. Hard cap: exactly 3 sentences."""
+def rewrite_summary(base_summary: str, fit_map: dict) -> str:
+    """
+    Rewrite the Summary grounded in the fit map's demonstrated competencies.
+    Hard cap: exactly 3 sentences.
+    """
     if DRY_RUN:
         return _DRY_SUMMARY
 
-    kw_str = ", ".join(keywords[:10])
-    prompt = f"""Rewrite this professional summary to target the job description below.
-Inject 5-7 of the listed keywords naturally.
+    comp_lines = "\n".join(
+        f"  - {c['competency']}: {c['demonstrated_by']} (use term: '{c['jd_term']}')"
+        for c in fit_map.get("competency_map", [])
+        if c.get("demonstrated_by")
+    )
+    jd_terms = ", ".join(
+        c["jd_term"] for c in fit_map.get("competency_map", []) if c.get("jd_term")
+    )
 
-HARD RULES — violating any of these makes the output unusable:
+    prompt = f"""Rewrite this professional summary for the target role.
+Use ONLY the candidate's verified, demonstrated experience listed below — never fabricate.
+
+Verified competency evidence (grounded in actual CV):
+{comp_lines}
+
+HARD RULES:
 - Exactly 3 sentences. No more, no less.
-- Sentence 1: [Role] with hands-on experience [specific work done] using [tools].
-- Sentence 2: Strong focus on [domain strengths relevant to JD].
-- Sentence 3: Proven ability to [business value / outcome delivered].
-- No "I" pronoun. No education mentions. No fabricated skills.
-- NEVER add skills the candidate doesn't actually have.
-
-Keywords to inject (most relevant only): {kw_str}
+- Sentence 1: [Role identity] with hands-on experience [core technical work] using [real tools].
+- Sentence 2: Strong background in [2-3 of the verified competencies above, using JD terms].
+- Sentence 3: Proven ability to [specific, quantifiable business outcome from the CV].
+- No "I". No education. Use the JD terms listed above where they map to real experience.
+- NEVER introduce skills or achievements not in the CV.
 
 Original Summary:
 {base_summary}
 
-Job Description (target):
-{jd[:1500]}
+JD terms to use (where authentic): {jd_terms}
 
 Return ONLY a JSON object:
 {{"summary": "sentence 1. sentence 2. sentence 3."}}"""
@@ -202,34 +282,38 @@ Return ONLY a JSON object:
     return result.get("summary", base_summary)
 
 
-def reframe_experience(experience: list[dict], jd: str, keywords: list[str]) -> list[dict]:
-    """Reframe experience bullets using JD vocabulary. 2-3 bullets per role."""
+def reframe_experience(experience: list[dict], fit_map: dict) -> list[dict]:
+    """
+    Reframe experience bullets using the fit map's JD vocabulary.
+    Grounded in demonstrated competencies — no fabrication.
+    """
     if DRY_RUN:
         return experience
 
-    kw_str = ", ".join(keywords[:12])
+    comp_lines = "\n".join(
+        f"  - {c['competency']}: use term '{c['jd_term']}' where this work appears"
+        for c in fit_map.get("competency_map", [])
+        if c.get("demonstrated_by")
+    )
     exp_text = ""
     for i, role in enumerate(experience):
         exp_text += f"\nRole {i}: {role['title']} at {role['company']}\n"
         for b in role["bullets"]:
             exp_text += f"  - {b}\n"
 
-    prompt = f"""Reframe these work experience bullets to better match the job description.
-Use JD vocabulary where authentic. NEVER fabricate skills or experience — only reformulate.
+    prompt = f"""Reframe these work experience bullets to match the job description vocabulary.
+
+Fit analysis — use these JD terms only where the work genuinely demonstrates that competency:
+{comp_lines}
 
 RULES:
-- Preserve the exact bullet count for each role. If a role has 3 bullets, return 3 bullets.
-- Each bullet: past-tense action verb → what was built/done → tools used → quantified impact.
-- Do NOT merge bullets or drop any. Do NOT add new bullets that weren't in the original.
-- Keep bullets to 1-2 lines max (no run-on sentences).
-
-JD Keywords: {kw_str}
+- Preserve the exact bullet count per role. If a role has 3 bullets, return exactly 3.
+- Structure: past-tense action verb → what was built/done → tools used → quantified impact.
+- Do NOT merge, drop, or add bullets. Do NOT introduce outcomes not in the original.
+- Max 1-2 lines per bullet. NEVER fabricate skills or results.
 
 Current Experience:
 {exp_text}
-
-Job Description excerpt:
-{jd[:1500]}
 
 Return ONLY a JSON object:
 {{
@@ -247,71 +331,6 @@ Return ONLY a JSON object:
         if 0 <= idx < len(reframed) and new_bullets:
             reframed[idx] = {**reframed[idx], "bullets": new_bullets[:3]}
     return reframed
-
-
-def compute_projected_score(jd: str, resume_md: str, current_score: float) -> int:
-    """
-    Realistic post-tailor score ceiling — no LLM required.
-
-    Tailoring can only reformulate *existing* experience using JD vocabulary.
-    It cannot fabricate skills. The honest maximum gain is therefore bounded by
-    a structural cap:
-
-        max_honest_boost = (100 - current_score) * 0.30
-
-    This says: at most 30% of the remaining distance to 100 is fixable via
-    presentation. The other 70% is genuine skills/experience gap that no
-    amount of wordsmithing can close.
-
-    That ceiling is then scaled by how many top JD keywords are actually
-    missing from the resume (the presentation gap fraction).
-
-    Examples at 30% cap:
-        60% score, 80% keyword gap → boost = 0.8 * (40 * 0.30) = 9.6  → ~70%
-        86% score, 60% keyword gap → boost = 0.6 * (14 * 0.30) = 2.5  → ~89%
-        92% score, 40% keyword gap → boost = 0.4 *  (8 * 0.30) = 0.96 → ~93%
-
-    A 60% resume will never project to 95% — that would require skills the
-    candidate doesn't have.
-    """
-    from collections import Counter
-
-    STOP = {
-        "the", "a", "an", "and", "or", "for", "in", "on", "at", "to", "of",
-        "with", "is", "are", "was", "were", "be", "been", "have", "has", "do",
-        "does", "did", "will", "would", "could", "should", "may", "might",
-        "must", "can", "this", "that", "these", "those", "we", "you", "our",
-        "your", "their", "its", "as", "by", "from", "not", "but", "if", "so",
-        "than", "also", "work", "team", "ability", "strong", "years", "year",
-        "role", "position", "experience", "including", "required", "preferred",
-        "working", "using", "across", "within", "new", "all", "any", "more",
-        "most", "some", "good", "great", "high", "key", "make", "use", "need",
-        "based", "related", "other", "each", "into", "about", "well", "both",
-        "such", "help", "what", "how", "who", "where", "when", "which",
-    }
-
-    def _tokens(text: str) -> list[str]:
-        return [
-            w for w in re.findall(r"\b[a-z][a-z0-9+#]{2,}\b", text.lower())
-            if w not in STOP
-        ]
-
-    jd_freq    = Counter(_tokens(jd))
-    resume_set = set(_tokens(resume_md))
-
-    top_jd = jd_freq.most_common(25)
-    if not top_jd:
-        return int(current_score)
-
-    total_w   = sum(v for _, v in top_jd)
-    missing_w = sum(v for w, v in top_jd if w not in resume_set)
-    gap = missing_w / total_w  # 0.0 = fully covered, 1.0 = fully missing
-
-    # Structural cap: even perfect tailoring can only close 30% of the remaining gap
-    max_honest_boost = max(100 - current_score, 0) * 0.30
-    boost = gap * max_honest_boost
-
-    return max(int(current_score + boost), int(current_score))
 
 
 # ── HTML builder helpers ──────────────────────────────────────────────────────
@@ -373,7 +392,8 @@ def _build_skills_html(skills: str) -> str:
 
 
 def _tailored_text(data: dict) -> str:
-    """Plain-text resume from tailored data — passed to LLM for post-tailor re-scoring."""
+    """Plain-text resume from tailored data — passed to LLM for post-tailor re-scoring.
+    Order mirrors the PDF template: Summary → Experience → Projects → Skills → Education."""
     lines = [
         f"# {data['name']}",
         "",
@@ -387,7 +407,12 @@ def _tailored_text(data: dict) -> str:
         lines.append(f"**{role['title']} | {role['company']}{loc}** ({role['dates']})")
         for b in role["bullets"]:
             lines.append(f"- {b}")
-    lines += ["", "## Skills", data["skills"]]
+    lines += ["", "## Projects"]
+    for proj in data.get("projects", []):
+        lines.append(f"**{proj['name']}**")
+        for b in proj["bullets"]:
+            lines.append(f"- {b}")
+    lines += ["", "## Skills", data["skills"], "", "## Education", data["education"]]
     return "\n".join(lines)
 
 
@@ -489,19 +514,18 @@ def tailor_resume(job_id: int) -> tuple[str, int]:
     jd      = job.get("job_description", "")
     company = job.get("company_name", "unknown")
 
-    # 2. LLM tailoring
-    keywords   = extract_keywords(jd)
+    # 2. LLM tailoring — fit map drives everything
     parsed     = parse_resume(resume_md)
-    summary    = rewrite_summary(parsed["summary"], jd, keywords)
-    experience = reframe_experience(parsed["experience"], jd, keywords)
+    fit_map    = analyze_fit(jd, resume_md)
+    summary    = rewrite_summary(parsed["summary"], fit_map)
+    experience = reframe_experience(parsed["experience"], fit_map)
 
-    # 3. Compute keyword coverage (summary + reframed bullets)
-    bullet_text = " ".join(
-        b for role in experience for b in role["bullets"]
-    )
-    searchable = (summary + " " + bullet_text).lower()
-    kw_hits    = sum(1 for kw in keywords if kw.lower() in searchable)
-    kw_pct     = round(100 * kw_hits / len(keywords)) if keywords else 0
+    # 3. ATS keyword coverage (summary + reframed bullets vs fit_map keywords)
+    ats_keywords = fit_map.get("ats_keywords", [])
+    bullet_text  = " ".join(b for role in experience for b in role["bullets"])
+    searchable   = (summary + " " + bullet_text).lower()
+    kw_hits      = sum(1 for kw in ats_keywords if kw.lower() in searchable)
+    kw_pct       = round(100 * kw_hits / len(ats_keywords)) if ats_keywords else 0
 
     # 4. Assemble data dict
     data = {
@@ -541,10 +565,13 @@ def tailor_resume(job_id: int) -> tuple[str, int]:
     with open(pdf_path, "wb") as f:
         f.write(final_pdf_bytes)
 
-    # 8. Post-tailor ATS re-score (LLM — skipped in DRY_RUN)
+    # 8. Post-tailor dual re-score: fit + ATS on the tailored content
     tailored_score: float | None = None
     try:
-        tailored_score, _ = _score_resume(company, jd, _tailored_text(data))
+        tailored_text = _tailored_text(data)
+        t_fit, _  = _fit_check(company, jd, tailored_text)
+        t_ats, _  = _ats_check(company, jd, tailored_text)
+        tailored_score = round(0.6 * t_fit + 0.4 * t_ats)
     except Exception:
         pass  # non-fatal — score stays None, shown as missing in UI
 
