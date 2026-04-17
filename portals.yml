@@ -1,70 +1,73 @@
 # Career-Ops Style Portal Definitions
-# Track A Targets: Mid-sized, Scale-ups, and High-Growth Companies
-# Focus: Data Analyst, AI Engineer, and Business Analyst roles (PAN America)
+# Track A Targets — verified active as of 2026-04
+# Companies that moved ATS are commented out (check & re-add if they return)
 
 greenhouse:
-  # --- Healthcare & HealthTech (Scale-ups & Mid-Size) ---
-  - flatironhealth       # Oncology Data
-  - tempus               # Precision medicine & AI
-  - ro                   # Telehealth
-  - zocdoc               # Healthcare marketplace
-  - noom                 # Health/Wellness app (Data heavy)
-  - khealth              # AI Health Assistant
-  - calm                 # Mental health metrics
-  - komodohealth         # Healthcare data mapping
-  - outsetmedical        # MedTech
+  # --- Healthcare & HealthTech ---
+  - flatironhealth
+  - zocdoc
+  - calm
+  - komodohealth
+  - outsetmedical
 
-  # --- FinTech & Finance (Mid-Size & Scale-ups) ---
-  - stripe               # FinTech Giant (included for volume)
-  - chime                # Neobank (Massive Data Analyst hiring)
-  - wealthfront          # Algorithmic wealth management
-  - gusto                # HR/Payroll FinTech
-  - mercury              # Banking for startups
-  - ramp                 # Spend management (Aggressive AI)
-  - robinhood            # Retail trading
-  - coinbase             # Blockchain analytics
-  - hudsonrivertrading   # Quant trading (Great entry level Data/AI)
+  # --- FinTech & Finance ---
+  - stripe
+  - chime
+  - gusto
+  - mercury
+  - robinhood
+  - coinbase
 
-  # --- Core Data Infrastructure & Developer Tools ---
-  - fivetran             # Data integration pipelines
-  - weightsandbiases     # ML developer tools
-  - astronomer           # Apache Airflow orchestration
-  - dbtlabs              # Data transformation tooling
-  - scaleai              # AI training data
-  - huggingface          # Open source ML ecosystem
+  # --- Core Data & ML Infrastructure ---
+  - fivetran
+  - scaleai
+  - instacart
+  - flexport
 
-  # --- E-Commerce, Consumer, & Logistics (Mid-Size) ---
-  - instacart            # Grocery tech (Excellent for early-career ML/DA)
-  - flexport             # AI-driven global logistics
-  - goat                 # E-commerce marketplace
-  - glossier             # Direct-to-consumer data models
-  - patreon              # Creator economy metrics
+  # --- Security & Infrastructure ---
+  - cloudflare
+  - okta
 
-  # --- Security & Infrastructure (Mid-Size) ---
-  - cloudflare           # Web infrastructure analytics
-  - crowdstrike          # Cybersecurity AI
-  - okta                 # Identity data
+  # --- EdTech ---
+  - duolingo
+  - masterclass
 
-  # --- EdTech (Mid-Size) ---
-  - duolingo             # AI-driven language learning
-  - masterclass          # E-learning engagement metrics
+  # Moved/inactive — re-verify before re-adding:
+  # - tempus         (moved ATS)
+  # - ro             (timeout)
+  # - noom           (timeout)
+  # - khealth        (timeout)
+  # - wealthfront    (moved ATS)
+  # - ramp           (timeout)
+  # - hudsonrivertrading (moved ATS)
+  # - weightsandbiases   (moved ATS)
+  # - astronomer     (moved ATS)
+  # - dbtlabs        (moved ATS)
+  # - huggingface    (moved ATS)
+  # - goat           (timeout)
+  # - glossier       (timeout)
+  # - patreon        (timeout)
+  # - crowdstrike    (moved ATS)
 
 lever:
-  # --- Across Multiple Categories ---
-  - benchling            # Biotech R&D cloud
-  - color                # Population genomics
-  - brex                 # FinTech corporate cards
-  - betterment           # FinTech investing
-  - marqeta              # Card issuing APIs
-  - mode                 # Data analytics platform
-  - retool               # Internal developer tools
-  - coursera             # EdTech analytics
-  - figma                # Collaborative design data
-  - cohere               # Enterprise NLP AI
+  # All Lever companies in original list returned 404 — likely migrated to Greenhouse/Ashby
+  # Re-verify and add back if confirmed active on Lever:
+  # - benchling
+  # - color
+  # - brex
+  # - betterment
+  # - marqeta
+  # - mode
+  # - retool
+  # - coursera
+  # - figma
+  # - cohere
 
 ashby:
-  # --- Agile Startups & Mid-Size Scale-ups ---
-  - notion               # Heavy AI product integration
-  - rippling             # HR/FinTech (Massive Analytics needs)
-  - hightouch            # Data Activation / Reverse ETL
-  - linear               # Developer tools (Data focused)
+  # --- Verified active ---
+  - notion
+  - hightouch
+  - linear
+
+  # Inactive:
+  # - rippling  (moved ATS)

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from google import genai
 from groq import Groq
 
-from db import clear_jobs, get_resume, insert_job
+from db import clear_jobs, get_resume, get_pending_jobs, insert_job, update_job_pipeline_result
 
 load_dotenv()
 
@@ -315,6 +315,95 @@ def run_pipeline() -> dict:
             counts["passed"] += 1
         else:
             insert_job({**base, "status": "Low Match"})
+            counts["low_match"] += 1
+
+    return counts
+
+
+# ── Phase 3 entry point — process Pending jobs already in DB ──────────────────
+
+def run_pipeline_on_pending() -> dict:
+    """
+    Run the triage pipeline on all jobs currently in the DB with status='Pending'.
+    Unlike run_pipeline(), this never clears or re-inserts — it updates in place.
+    Called automatically by sourcer.run_sourcing() after ingestion.
+    """
+    jobs = get_pending_jobs()
+    counts = {"total": len(jobs), "stale": 0, "rejected": 0,
+              "low_match": 0, "passed": 0, "errored": 0}
+
+    for job in jobs:
+        job_id  = job["id"]
+        jd      = job.get("job_description", "")
+        company = job.get("company_name", "")
+        role    = job.get("assigned_resume_type", "DA")
+
+        # Stage 1 — Freshness
+        if _is_stale(job.get("posted_at", "")):
+            update_job_pipeline_result(job_id, "Stale",
+                                       filter_reason="Posted more than 3 days ago")
+            counts["stale"] += 1
+            continue
+
+        # Stage 2 — OPT filter
+        try:
+            denied, reason = _opt_filter(company, jd)
+        except Exception as e:
+            update_job_pipeline_result(job_id, "Error",
+                                       filter_reason=f"OPT filter failed: {e}")
+            counts["errored"] += 1
+            continue
+
+        if denied:
+            update_job_pipeline_result(job_id, "Rejected", filter_reason=reason)
+            counts["rejected"] += 1
+            continue
+
+        # Stage 3 — Legitimacy (annotates, never blocks)
+        try:
+            leg_label, leg_reason = _legitimacy_check(company, jd)
+        except Exception as e:
+            leg_label, leg_reason = "Unknown", f"Legitimacy check failed: {e}"
+
+        # Stage 4 — Dual scoring
+        resume_content = get_resume(role)
+        if not resume_content:
+            update_job_pipeline_result(job_id, "Error",
+                                       filter_reason=f"No resume for role: {role}",
+                                       legitimacy_label=leg_label,
+                                       legitimacy_reason=leg_reason)
+            counts["errored"] += 1
+            continue
+
+        try:
+            fit_score, fit_reason = _fit_check(company, jd, resume_content)
+            ats_score, ats_reason = _ats_check(company, jd, resume_content)
+        except Exception as e:
+            update_job_pipeline_result(job_id, "Error",
+                                       filter_reason=f"Scoring failed: {e}",
+                                       legitimacy_label=leg_label,
+                                       legitimacy_reason=leg_reason)
+            counts["errored"] += 1
+            continue
+
+        match_score  = round(0.7 * fit_score + 0.3 * ats_score)
+        score_reason = f"Fit: {fit_score}% — {fit_reason} | ATS: {ats_score}% — {ats_reason}"
+
+        if match_score >= SCORE_THRESHOLD:
+            update_job_pipeline_result(
+                job_id, "Passed",
+                match_score=match_score, fit_score=fit_score, ats_score=ats_score,
+                filter_reason=score_reason,
+                legitimacy_label=leg_label, legitimacy_reason=leg_reason,
+            )
+            counts["passed"] += 1
+        else:
+            update_job_pipeline_result(
+                job_id, "Low Match",
+                match_score=match_score, fit_score=fit_score, ats_score=ats_score,
+                filter_reason=score_reason,
+                legitimacy_label=leg_label, legitimacy_reason=leg_reason,
+            )
             counts["low_match"] += 1
 
     return counts

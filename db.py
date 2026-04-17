@@ -56,6 +56,20 @@ def init_db():
         except Exception:
             pass
 
+    # Phase 3 columns
+    for col_def in (
+        "source        TEXT",
+        "external_id   TEXT",
+        "sourced_at    TEXT",
+        "apply_url     TEXT",
+        "ats_type      TEXT",
+        "is_easy_apply INTEGER DEFAULT 0",
+    ):
+        try:
+            c.execute(f"ALTER TABLE jobs ADD COLUMN {col_def}")
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 
@@ -107,8 +121,10 @@ def insert_job(job: dict):
                (apify_url, company_name, job_title, job_description,
                 posted_at, status, match_score, fit_score, ats_score,
                 legitimacy_label, legitimacy_reason,
-                assigned_resume_type, filter_reason)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                assigned_resume_type, filter_reason,
+                source, external_id, sourced_at,
+                apply_url, ats_type, is_easy_apply)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             job.get("apify_url"),
             job.get("company_name"),
@@ -123,6 +139,12 @@ def insert_job(job: dict):
             job.get("legitimacy_reason"),
             job.get("assigned_resume_type"),
             job.get("filter_reason"),
+            job.get("source"),
+            job.get("external_id"),
+            job.get("sourced_at"),
+            job.get("apply_url"),
+            job.get("ats_type"),
+            1 if job.get("is_easy_apply") else 0,
         ),
     )
     conn.commit()
@@ -196,3 +218,98 @@ def get_tailor_status(job_id: int) -> dict:
     if not row:
         return {"tailor_status": None, "tailored_resume_path": None}
     return {"tailor_status": row[0], "tailored_resume_path": row[1]}
+
+
+# ── Phase 3 — Sourcing ────────────────────────────────────────────────────────
+
+def job_url_exists(url: str) -> bool:
+    """Primary dedup check — URL already in DB."""
+    if not url:
+        return False
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT 1 FROM jobs WHERE apify_url = ? LIMIT 1", (url,))
+    exists = c.fetchone() is not None
+    conn.close()
+    return exists
+
+
+def job_composite_exists(company: str, title: str) -> bool:
+    """Secondary dedup check — same company+title already in DB."""
+    if not company or not title:
+        return False
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute(
+        "SELECT 1 FROM jobs WHERE LOWER(company_name) = LOWER(?) AND LOWER(job_title) = LOWER(?) LIMIT 1",
+        (company, title),
+    )
+    exists = c.fetchone() is not None
+    conn.close()
+    return exists
+
+
+def get_pending_jobs() -> list[dict]:
+    """Return all jobs with status='Pending' for pipeline processing."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM jobs WHERE status = 'Pending'")
+    rows = c.fetchall()
+    cols = [d[0] for d in c.description]
+    conn.close()
+    return [dict(zip(cols, r)) for r in rows]
+
+
+def update_job_pipeline_result(
+    job_id: int,
+    status: str,
+    match_score: float | None = None,
+    fit_score: float | None = None,
+    ats_score: float | None = None,
+    filter_reason: str | None = None,
+    legitimacy_label: str | None = None,
+    legitimacy_reason: str | None = None,
+):
+    """Update pipeline results for a job already in the DB (Phase 3 path)."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute(
+        """UPDATE jobs
+           SET status            = ?,
+               match_score       = ?,
+               fit_score         = ?,
+               ats_score         = ?,
+               filter_reason     = ?,
+               legitimacy_label  = ?,
+               legitimacy_reason = ?
+           WHERE id = ?""",
+        (status, match_score, fit_score, ats_score,
+         filter_reason, legitimacy_label, legitimacy_reason, job_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_sourcing_stats() -> dict:
+    """Stats for the Sourcing page: totals, by-source counts, new today."""
+    conn = get_connection()
+    c = conn.cursor()
+
+    c.execute("SELECT COUNT(*) FROM jobs")
+    total = c.fetchone()[0]
+
+    c.execute("""
+        SELECT source, COUNT(*) FROM jobs
+        WHERE source IS NOT NULL
+        GROUP BY source
+    """)
+    by_source = {row[0]: row[1] for row in c.fetchall()}
+
+    c.execute("SELECT COUNT(*) FROM jobs WHERE DATE(sourced_at) = DATE('now')")
+    new_today = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM jobs WHERE status = 'Pending'")
+    pending = c.fetchone()[0]
+
+    conn.close()
+    return {"total": total, "by_source": by_source, "new_today": new_today, "pending": pending}

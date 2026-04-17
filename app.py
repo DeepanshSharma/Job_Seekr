@@ -85,7 +85,7 @@ def _run_tailor(job_id: int, company: str):
 
 # ── Sidebar navigation ────────────────────────────────────────────────────────
 st.sidebar.title("Job_Seekr")
-page = st.sidebar.radio("", ["Triage Board", "Resume Manager"])
+page = st.sidebar.radio("", ["Triage Board", "Sourcing", "Resume Manager"])
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — TRIAGE BOARD
@@ -205,7 +205,122 @@ if page == "Triage Board":
                     st.write(f"**{j['company_name']}** — {j['job_title']} | _{j.get('filter_reason', '')}_")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE 2 — RESUME MANAGER
+# PAGE 2 — SOURCING
+# ═══════════════════════════════════════════════════════════════════════════════
+elif page == "Sourcing":
+    import os as _os
+    from sourcer import run_sourcing
+
+    st.title("Sourcing")
+    st.caption("Fetch live jobs from ATS portals (Track A) and LinkedIn/Indeed via Apify (Track B).")
+
+    apify_configured = bool(_os.getenv("APIFY_API_KEY", ""))
+    linkedin_configured = any(
+        _os.getenv(f"LINKEDIN_URL_{r}") for r in ("DA", "BA", "DS", "AI")
+    )
+
+    # ── Controls ──────────────────────────────────────────────────────────────
+    col_a, col_b, col_full = st.columns(3)
+
+    run_tracks: list[str] | None = None
+
+    with col_a:
+        if st.button("Run Track A — ATS APIs", use_container_width=True,
+                     help="Greenhouse · Lever · Ashby — free, no API key needed (~30s)"):
+            run_tracks = ["a"]
+
+    with col_b:
+        b_disabled = not apify_configured
+        b_help = "Set APIFY_API_KEY in .env to enable" if b_disabled else \
+                 ("LinkedIn: no LINKEDIN_URL_* set — will run Indeed only" if not linkedin_configured else
+                  "LinkedIn + Indeed via Apify (~2-3 min)")
+        if st.button("Run Track B — LinkedIn + Indeed", use_container_width=True,
+                     disabled=b_disabled, help=b_help):
+            run_tracks = ["b"]
+
+    with col_full:
+        if st.button("▶ Run Full Sourcing", type="primary",
+                     use_container_width=True,
+                     help="Both tracks — pipeline auto-runs on all new jobs after ingest"):
+            run_tracks = ["a", "b"] if apify_configured else ["a"]
+
+    # ── Execute if a button was pressed ──────────────────────────────────────
+    if run_tracks is not None:
+        track_label = " + ".join(f"Track {t.upper()}" for t in run_tracks)
+        with st.spinner(f"Running {track_label}..."):
+            result = run_sourcing(run_tracks)
+        st.session_state["last_sourcing_result"] = result
+
+        inserted = result.get("inserted", 0)
+        skipped  = result.get("skipped_dup", 0)
+        stale    = result.get("skipped_stale", 0)
+        no_role  = result.get("skipped_no_role", 0)
+        errors   = result.get("errors", 0)
+
+        if inserted > 0:
+            st.success(
+                f"✓ {inserted} new jobs inserted — "
+                f"{skipped} dup · {stale} stale · {no_role} no-role · {errors} error"
+            )
+        else:
+            st.info(
+                f"No new jobs — "
+                f"{skipped} dup · {stale} stale · {no_role} no-role · {errors} error"
+            )
+
+        # Pipeline auto-runs inside run_sourcing() — show its results here
+        p = result.get("pipeline")
+        if isinstance(p, dict) and "error" not in p:
+            st.success(
+                f"Pipeline — {p.get('passed', 0)} passed · "
+                f"{p.get('rejected', 0)} rejected (OPT) · "
+                f"{p.get('low_match', 0)} low match · "
+                f"{p.get('stale', 0)} stale · "
+                f"{p.get('errored', 0)} errored"
+            )
+            st.rerun()
+        elif isinstance(p, dict) and "error" in p:
+            st.warning(f"Pipeline error: {p['error']}")
+
+    st.divider()
+
+    # ── Stats panel ───────────────────────────────────────────────────────────
+    from db import get_sourcing_stats as _get_stats
+
+    stats = _get_stats()
+    st.subheader("DB Stats")
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Jobs", stats["total"])
+    m2.metric("New Today", stats["new_today"])
+    m3.metric("Pending Pipeline", stats["pending"])
+
+    if stats["by_source"]:
+        st.subheader("By Source")
+        source_cols = st.columns(len(stats["by_source"]))
+        for col, (src, cnt) in zip(source_cols, sorted(stats["by_source"].items())):
+            col.metric(src.replace("track_a_", "A: ").replace("track_b_", "B: "), cnt)
+
+    # Show last-run breakdown if available
+    if "last_sourcing_result" in st.session_state:
+        last = st.session_state["last_sourcing_result"]
+        breakdown = last.get("breakdown", {})
+        if breakdown:
+            st.subheader("Last Run — Inserted by Source")
+            bd_cols = st.columns(max(len(breakdown), 1))
+            for col, (src, cnt) in zip(bd_cols, sorted(breakdown.items())):
+                col.metric(src.replace("track_a_", "A: ").replace("track_b_", "B: "), cnt)
+
+    # ── Track B config status ─────────────────────────────────────────────────
+    with st.expander("Track B Configuration"):
+        st.write(f"**APIFY_API_KEY:** {'✓ set' if apify_configured else '✗ not set'}")
+        for role in ("DA", "BA", "DS", "AI"):
+            val = _os.getenv(f"LINKEDIN_URL_{role}")
+            st.write(f"**LINKEDIN_URL_{role}:** {'✓ set' if val else '✗ not set'}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAGE 3 — RESUME MANAGER
 # ═══════════════════════════════════════════════════════════════════════════════
 elif page == "Resume Manager":
     st.title("Resume Manager")
