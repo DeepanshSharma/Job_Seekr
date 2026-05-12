@@ -4,7 +4,9 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:api.github.com)",
-      "mcp__code-review-graph__build_or_update_graph_tool"
+      "mcp__code-review-graph__build_or_update_graph_tool",
+      "Skill(gstack)",
+      "Skill(gstack:*)"
     ]
   }
 }

@@ -1,21 +1,26 @@
 # Job_Seekr — Claude Code Instructions
 
 This is a Python-native job application automation platform.
-Stack: Streamlit UI · SQLite · Groq (primary LLM) + Gemini (fallback) · Playwright (PDF render + Phase 4 auto-apply)
+Stack: Streamlit UI · SQLite · Groq (primary LLM) + Gemini (fallback) · LangGraph (multi-agent pipeline) · ChromaDB + sentence-transformers (RAG) · Pydantic (structured outputs) · Playwright (PDF render + Phase 4 auto-apply)
 
 ## Project Structure
 
 ```
 Job_Seekr/
 ├── app.py                    # Streamlit dashboard (entry point)
-├── db.py                     # SQLite schema + CRUD
-├── gemini_orchestrator.py    # LLM pipeline (Groq → Gemini fallback)
-├── tailor.py                 # Phase 2: LLM tailoring engine + Playwright PDF renderer
+├── db.py                     # SQLite schema + CRUD + llm_logs table
+├── llm.py                    # LLM clients, call_llm(), Pydantic models, judgment functions
+├── rag.py                    # ChromaDB: chunk resumes, embed, index, retrieve
+├── pipeline.py               # LangGraph 7-agent triage graph
+├── tailor.py                 # LLM tailoring engine + Playwright PDF renderer
+├── eval.py                   # Custom evaluator: keyword coverage + hallucination check
+├── sourcer.py                # Track A (ATS APIs) + Track B (Apify) sourcing engine
 ├── templates/
-│   └── cv-template.html      # Phase 2: HTML resume template for Playwright
-├── data/mock_jobs.json       # Mock job data for Phase 1/2 testing
+│   └── cv-template.html      # HTML resume template for Playwright
+├── data/mock_jobs.json       # Mock job data for dev/testing
 ├── resumes/                  # Base markdown resumes (da, ba, ai)
-├── output/                   # Generated PDFs + cover letters go here
+├── output/                   # Generated PDFs go here
+├── chroma_db/                # ChromaDB persistent vector store (gitignored)
 ├── requirements.txt
 ├── .env                      # API keys — never commit
 └── venv/                     # Python virtual environment
@@ -233,10 +238,11 @@ Examples:
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| 1 | ✅ Done | Triage board — OPT filter + legitimacy + semantic scoring |
-| 2 | 🔨 Building | Tailoring engine — `tailor.py` + `templates/cv-template.html` + Playwright PDF |
-| 3 | Planned | Live sourcing — Apify LinkedIn actor → SQLite |
-| 4 | Planned | Auto-apply — Playwright form filling + submission |
+| 1 | ✅ Done | Triage board — OPT filter + legitimacy + dual scoring (fit + ATS) |
+| 2 | ✅ Done | Tailoring engine — `tailor.py` + `templates/cv-template.html` + Playwright PDF |
+| 3 | ✅ Done | Live sourcing — Track A (ATS APIs) + Track B (Apify LinkedIn + Indeed) |
+| AI Refactor | ✅ Done | LangGraph pipeline, RAG/ChromaDB, Pydantic structured outputs, eval layer |
+| 4 | 🔜 Planned | Auto-apply — Playwright form filling + LinkedIn Easy Apply submission |
 
 ### Phase 2 Scope (confirmed)
 

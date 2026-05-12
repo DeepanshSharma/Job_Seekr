@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from datetime import datetime
 
 DB_PATH = "jobseeker.db"
 
@@ -69,6 +70,18 @@ def init_db():
             c.execute(f"ALTER TABLE jobs ADD COLUMN {col_def}")
         except Exception:
             pass
+
+    # MLOps: log every LLM call for observability (model, latency, provider)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS llm_logs (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp      TEXT NOT NULL,
+            model          TEXT NOT NULL,
+            prompt_preview TEXT,
+            latency_ms     INTEGER,
+            provider       TEXT
+        )
+    """)
 
     conn.commit()
     conn.close()
@@ -290,6 +303,32 @@ def update_job_pipeline_result(
     conn.close()
 
 
+def log_llm_call(model: str, prompt_preview: str, latency_ms: int, provider: str):
+    """Record one LLM call. Called by llm.py after every successful call."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute(
+        """INSERT INTO llm_logs (timestamp, model, prompt_preview, latency_ms, provider)
+           VALUES (?, ?, ?, ?, ?)""",
+        (datetime.now().isoformat(timespec="seconds"), model, prompt_preview, latency_ms, provider),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_llm_logs(limit: int = 50) -> list[dict]:
+    """Return the most recent LLM calls — used by the UI for observability."""
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute(
+        "SELECT * FROM llm_logs ORDER BY id DESC LIMIT ?", (limit,)
+    )
+    rows = c.fetchall()
+    cols = [d[0] for d in c.description]
+    conn.close()
+    return [dict(zip(cols, r)) for r in rows]
+
+
 def get_sourcing_stats() -> dict:
     """Stats for the Sourcing page: totals, by-source counts, new today."""
     conn = get_connection()
@@ -305,7 +344,7 @@ def get_sourcing_stats() -> dict:
     """)
     by_source = {row[0]: row[1] for row in c.fetchall()}
 
-    c.execute("SELECT COUNT(*) FROM jobs WHERE DATE(sourced_at) = DATE('now')")
+    c.execute("SELECT COUNT(*) FROM jobs WHERE DATE(sourced_at) = DATE('now', 'localtime')")
     new_today = c.fetchone()[0]
 
     c.execute("SELECT COUNT(*) FROM jobs WHERE status = 'Pending'")

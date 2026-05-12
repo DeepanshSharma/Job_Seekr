@@ -7,3 +7,8 @@ playwright
 requests
 pyyaml
 apify-client
+langgraph
+langchain-groq
+chromadb
+sentence-transformers
+pydantic

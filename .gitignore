@@ -15,6 +15,9 @@ jobseeker.db
 *.pyo
 .pytest_cache/
 
+# ChromaDB persistent vector store
+chroma_db/
+
 # Node / Next.js
 frontend/node_modules/
 frontend/.next/
@@ -27,3 +30,4 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+.gstack/

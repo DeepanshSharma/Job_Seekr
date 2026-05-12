@@ -11,7 +11,7 @@ from db import (
     seed_resumes_if_empty,
     update_tailor_result,
 )
-from gemini_orchestrator import run_pipeline
+from pipeline import run_pipeline_on_pending
 
 # ── Bootstrap ─────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Job_Seekr", page_icon="🎯", layout="wide")
@@ -93,13 +93,22 @@ page = st.sidebar.radio("", ["Triage Board", "Sourcing", "Resume Manager"])
 if page == "Triage Board":
     st.title("Triage Board")
 
+    from db import get_pending_jobs as _get_pending
+    pending_count = len(_get_pending())
+
     col_btn, col_status = st.columns([1, 4])
     with col_btn:
-        run = st.button("▶ Run Pipeline (Mock)", type="primary", use_container_width=True)
+        run = st.button(
+            f"▶ Run Pipeline ({pending_count} pending)",
+            type="primary",
+            use_container_width=True,
+            disabled=(pending_count == 0),
+            help="Score all Pending jobs — OPT filter → legitimacy → fit + ATS",
+        )
 
     if run:
-        with st.spinner("Running pipeline — Groq primary, Gemini fallback..."):
-            counts = run_pipeline()
+        with st.spinner(f"Scoring {pending_count} jobs — Groq primary, Gemini fallback..."):
+            counts = run_pipeline_on_pending()
         msg = (
             f"Done — {counts['passed']} passed · "
             f"{counts['rejected']} rejected (OPT) · "
@@ -110,12 +119,13 @@ if page == "Triage Board":
         if counts.get("errored", 0):
             msg += f" · ⚠️ {counts['errored']} errored"
         col_status.success(msg)
+        st.rerun()
 
     st.divider()
     jobs = get_all_jobs()
 
     if not jobs:
-        st.info("No jobs yet. Hit **Run Pipeline (Mock)** to populate.")
+        st.info("No jobs yet. Run Track A or Track B on the **Sourcing** page.")
     else:
         passed    = [j for j in jobs if j["status"] == "Passed"]
         low_match = [j for j in jobs if j["status"] == "Low Match"]
@@ -251,11 +261,12 @@ elif page == "Sourcing":
             result = run_sourcing(run_tracks)
         st.session_state["last_sourcing_result"] = result
 
-        inserted = result.get("inserted", 0)
-        skipped  = result.get("skipped_dup", 0)
-        stale    = result.get("skipped_stale", 0)
-        no_role  = result.get("skipped_no_role", 0)
-        errors   = result.get("errors", 0)
+        inserted       = result.get("inserted", 0)
+        skipped        = result.get("skipped_dup", 0)
+        stale          = result.get("skipped_stale", 0)
+        no_role        = result.get("skipped_no_role", 0)
+        errors         = result.get("errors", 0)
+        skipped_config = result.get("skipped_config", 0)
 
         if inserted > 0:
             st.success(
@@ -267,6 +278,10 @@ elif page == "Sourcing":
                 f"No new jobs — "
                 f"{skipped} dup · {stale} stale · {no_role} no-role · {errors} error"
             )
+
+        if skipped_config:
+            st.warning("Indeed actor requires a paid Apify subscription — skipped. "
+                       "Track A (Greenhouse/Lever/Ashby) is unaffected.")
 
         # Pipeline auto-runs inside run_sourcing() — show its results here
         p = result.get("pipeline")

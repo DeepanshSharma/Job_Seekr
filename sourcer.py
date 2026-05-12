@@ -38,13 +38,16 @@ logger = logging.getLogger(__name__)
 # ── Config ────────────────────────────────────────────────────────────────────
 
 PORTALS_PATH = os.path.join(os.path.dirname(__file__), "portals.yml")
-FRESHNESS_DAYS = int(os.getenv("FRESHNESS_DAYS", "3"))
+FRESHNESS_DAYS = int(os.getenv("FRESHNESS_DAYS", "2"))
 TRACK_A_CAP = 50        # max jobs per ATS company
 TRACK_A_SLEEP = 0.3     # seconds between company requests
 
-APIFY_API_KEY = os.getenv("APIFY_API_KEY", "")
-TRACK_B_CAP   = int(os.getenv("TRACK_B_CAP", "50"))
-LINKEDIN_URLS = [
+APIFY_API_KEY    = os.getenv("APIFY_API_KEY", "")
+APIFY_DRY_RUN    = os.getenv("APIFY_DRY_RUN", "false").lower() == "true"
+TRACK_B_CAP      = int(os.getenv("TRACK_B_CAP", "50"))
+TRACK_B_DEV_MODE = os.getenv("TRACK_B_DEV_MODE", "false").lower() == "true"  # use 1 URL, small cap
+
+_all_linkedin_urls = [
     u for u in [
         os.getenv("LINKEDIN_URL_DA"),
         os.getenv("LINKEDIN_URL_BA"),
@@ -52,10 +55,10 @@ LINKEDIN_URLS = [
         os.getenv("LINKEDIN_URL_AI"),
     ] if u
 ]
-INDEED_MAX_RESULTS = int(os.getenv("INDEED_MAX_RESULTS", "100"))
-INDEED_POSTED_WITHIN = int(os.getenv("INDEED_POSTED_WITHIN", "7"))
-INDEED_LOCATION = os.getenv("INDEED_LOCATION", "United States")
-INDEED_COUNTRY = os.getenv("INDEED_COUNTRY", "United States")
+# Dev mode: only use first URL to avoid burning Apify credits
+LINKEDIN_URLS = _all_linkedin_urls[:1] if TRACK_B_DEV_MODE else _all_linkedin_urls
+INDEED_MAX_RESULTS = int(os.getenv("INDEED_MAX_RESULTS", "50"))
+INDEED_LOCATION    = os.getenv("INDEED_LOCATION", "United States")
 
 INDEED_QUERIES = [
     {"role": "DA", "query": "Data Analyst"},
@@ -215,6 +218,14 @@ def normalize_job(raw: dict, source: str, role: str | None = None) -> dict:
     title = (
         raw.get("title") or raw.get("positionName") or raw.get("name") or ""
     ).strip()
+    # Some Indeed/LinkedIn rows append salary to the title (e.g. "Data Analyst - 57.69 - 67.31 per hour").
+    # Strip trailing salary patterns: hourly ranges, annual ranges, and "$X-Y" suffixes.
+    title = re.sub(
+        r"\s*[-–—]\s*\$?[\d,.]+\s*[-–—]\s*\$?[\d,.]+\s*(per\s*(hour|hr|year|yr|annum)|/(hour|hr|year|yr)|hourly|annually|/yr)\s*$",
+        "",
+        title,
+        flags=re.IGNORECASE,
+    ).strip()
 
     company = (
         raw.get("company_name") or raw.get("companyName") or raw.get("company")
@@ -229,7 +240,7 @@ def normalize_job(raw: dict, source: str, role: str | None = None) -> dict:
     description = _strip_html(description_raw)
 
     url = (
-        raw.get("jobUrl") or raw.get("absolute_url") or raw.get("url")
+        raw.get("link") or raw.get("jobUrl") or raw.get("absolute_url") or raw.get("url")
         or raw.get("applyUrl") or raw.get("hostedUrl") or ""
     ).strip()
 
@@ -238,8 +249,9 @@ def normalize_job(raw: dict, source: str, role: str | None = None) -> dict:
     ).strip()
 
     posted_raw = (
-        raw.get("postedAt") or raw.get("publishedAt") or raw.get("updated_at")
-        or raw.get("createdAt") or raw.get("date") or raw.get("datePosted") or None
+        raw.get("postingDateParsed") or raw.get("postedAt") or raw.get("publishedAt")
+        or raw.get("updated_at") or raw.get("createdAt") or raw.get("date")
+        or raw.get("datePosted") or None
     )
     posted_at = _parse_date(posted_raw)
 
@@ -257,8 +269,8 @@ def normalize_job(raw: dict, source: str, role: str | None = None) -> dict:
 
     # ── Apply URL + ATS detection ─────────────────────────────────────────────
     apply_url = (
-        raw.get("applyUrl") or raw.get("apply_url") or raw.get("absolute_url")
-        or raw.get("hostedUrl") or url
+        raw.get("externalApplyLink") or raw.get("applyUrl") or raw.get("apply_url")
+        or raw.get("absolute_url") or raw.get("hostedUrl") or url
     ).strip()
     is_easy_apply = bool(raw.get("isEasyApply") or raw.get("is_easy_apply", False))
     ats_type = "linkedin_easy" if is_easy_apply else detect_ats(apply_url)
@@ -344,6 +356,9 @@ def fetch_lever(slug: str) -> list[dict]:
     resp.raise_for_status()
     data = resp.json()
     if isinstance(data, list):
+        company_name = slug.replace("-", " ").title()
+        for p in data:
+            p.setdefault("company_name", company_name)
         return data[:TRACK_A_CAP]
     return []
 
@@ -356,6 +371,10 @@ def fetch_ashby(slug: str) -> list[dict]:
     data = resp.json()
     # Ashby returns {"jobs": [...]} — "jobPostings" was old API shape
     postings = data.get("jobs") or data.get("jobPostings") or []
+    # Ashby doesn't include company_name per-job — inject from slug
+    company_name = slug.replace("-", " ").title()
+    for p in postings:
+        p.setdefault("company_name", company_name)
     return postings[:TRACK_A_CAP]
 
 
@@ -406,8 +425,11 @@ def run_track_a() -> dict:
 def _apify_run(actor_id: str, run_input: dict) -> list[dict]:
     """
     Run an Apify actor synchronously and return all dataset items.
-    Requires APIFY_API_KEY to be set.
+    Returns empty list immediately when APIFY_DRY_RUN=true (dev mode — no credits spent).
     """
+    if APIFY_DRY_RUN:
+        logger.info("[Apify DRY RUN] Skipping actor %s — returning 0 items", actor_id)
+        return []
     from apify_client import ApifyClient
     client = ApifyClient(APIFY_API_KEY)
     run = client.actor(actor_id).call(run_input=run_input)
@@ -429,10 +451,12 @@ def run_linkedin_scraper() -> dict:
         return dict(inserted=0, skipped_dup=0, skipped_stale=0,
                     skipped_no_role=0, errors=0, skipped_config=1)
 
+    dev_cap = 10 if TRACK_B_DEV_MODE else TRACK_B_CAP
     run_input = {
-        "startUrls": [{"url": url} for url in LINKEDIN_URLS],
-        "maxResults": TRACK_B_CAP * len(LINKEDIN_URLS),  # 50 per URL × 4 = 200 total
-        "proxy": {"useApifyProxy": True},
+        "urls": LINKEDIN_URLS,
+        "count": dev_cap,           # jobs per URL
+        "scrapeCompany": False,     # skip company page — halves run time and cost
+        "splitByLocation": False,
     }
     try:
         items = _apify_run("curious_coder/linkedin-jobs-scraper", run_input)
@@ -445,27 +469,30 @@ def run_linkedin_scraper() -> dict:
 
 def run_indeed_scraper() -> dict:
     """
-    Scrape Indeed for each role query. Returns combined ingest counts.
+    Scrape Indeed using misceres/indeed-scraper (free, 20k+ users).
+    One Apify run per role query. Returns combined ingest counts.
     """
     if not APIFY_API_KEY:
         logger.warning("[Track B] APIFY_API_KEY not set — skipping Indeed")
         return dict(inserted=0, skipped_dup=0, skipped_stale=0,
                     skipped_no_role=0, errors=0, skipped_config=1)
 
+    dev_cap = 25 if TRACK_B_DEV_MODE else INDEED_MAX_RESULTS
     totals = dict(inserted=0, skipped_dup=0, skipped_stale=0,
                   skipped_no_role=0, errors=0)
 
     for q in INDEED_QUERIES:
         run_input = {
-            "query":        q["query"],
-            "location":     INDEED_LOCATION,
-            "country":      INDEED_COUNTRY,
-            "postedWithin": INDEED_POSTED_WITHIN,
-            "maxItems":     INDEED_MAX_RESULTS,
-            "proxy":        {"useApifyProxy": True},
+            "position":            q["query"],
+            "location":            INDEED_LOCATION,
+            "country":             "US",
+            "maxItemsPerSearch":   dev_cap,
+            "saveOnlyUniqueItems": True,
+            "parseCompanyDetails": False,
+            "followApplyRedirects": False,
         }
         try:
-            items = _apify_run("curious_coder/indeed-scraper", run_input)
+            items = _apify_run("misceres/indeed-scraper", run_input)
             result = ingest(items, source="track_b_indeed", role_hint=q["role"])
             for k, v in result.items():
                 if k in totals:
@@ -525,13 +552,11 @@ def run_sourcing(tracks: list[str] = ("a", "b")) -> dict:
             elif k in totals:
                 totals[k] += v
 
-    totals["stats"] = get_sourcing_stats()
-
     # Auto-trigger scoring pipeline on newly inserted Pending jobs
     if totals.get("inserted", 0) > 0:
         logger.info("Auto-triggering pipeline on %d new Pending jobs...", totals["inserted"])
         try:
-            from gemini_orchestrator import run_pipeline_on_pending
+            from pipeline import run_pipeline_on_pending
             totals["pipeline"] = run_pipeline_on_pending()
         except Exception as e:
             logger.error("Pipeline auto-trigger failed: %s", e)
@@ -539,5 +564,7 @@ def run_sourcing(tracks: list[str] = ("a", "b")) -> dict:
     else:
         logger.info("No new jobs inserted — pipeline not triggered")
         totals["pipeline"] = None
+
+    totals["stats"] = get_sourcing_stats()
 
     return totals

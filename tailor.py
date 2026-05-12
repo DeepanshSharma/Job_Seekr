@@ -22,7 +22,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from db import get_job_by_id, get_resume, update_tailor_result
-from gemini_orchestrator import DRY_RUN, _ats_check, _call_llm, _fit_check
+from eval import evaluate_resume
+from llm import DRY_RUN, ats_check, call_llm, fit_check
+from rag import index_resumes, retrieve_chunks
 
 load_dotenv()
 
@@ -233,7 +235,7 @@ Resume:
 
 Job Description:
 {jd}"""
-    result, _ = _call_llm(prompt)
+    result, _ = call_llm(prompt)
     # Validate structure; fall back to dry-run map if malformed
     if "competency_map" not in result or "ats_keywords" not in result:
         return _DRY_FIT_MAP
@@ -278,7 +280,7 @@ JD terms to use (where authentic): {jd_terms}
 
 Return ONLY a JSON object:
 {{"summary": "sentence 1. sentence 2. sentence 3."}}"""
-    result, _ = _call_llm(prompt)
+    result, _ = call_llm(prompt)
     return result.get("summary", base_summary)
 
 
@@ -322,7 +324,7 @@ Return ONLY a JSON object:
     {{"index": 1, "bullets": ["reframed bullet 1", "reframed bullet 2"]}}
   ]
 }}"""
-    result, _ = _call_llm(prompt)
+    result, _ = call_llm(prompt)
 
     reframed = [dict(r) for r in experience]
     for role_update in result.get("roles", []):
@@ -514,18 +516,30 @@ def tailor_resume(job_id: int) -> tuple[str, int]:
     jd      = job.get("job_description", "")
     company = job.get("company_name", "unknown")
 
-    # 2. LLM tailoring — fit map drives everything
-    parsed     = parse_resume(resume_md)
-    fit_map    = analyze_fit(jd, resume_md)
+    # 2. RAG: retrieve the most relevant resume sections for this JD.
+    #    Instead of passing the entire resume to analyze_fit(), we embed the JD,
+    #    run cosine similarity against indexed resume chunks, and pass only the
+    #    top-k most relevant sections. Tighter context = more focused tailoring.
+    index_resumes()  # no-op if already indexed
+    rag_chunks = retrieve_chunks(jd, role_type=role, k=6)
+    resume_context = "\n\n---\n\n".join(rag_chunks) if rag_chunks else resume_md
+
+    # 3. LLM tailoring — fit map drives everything
+    parsed     = parse_resume(resume_md)           # full resume still needed for HTML structure
+    fit_map    = analyze_fit(jd, resume_context)   # but LLM only sees the relevant chunks
     summary    = rewrite_summary(parsed["summary"], fit_map)
     experience = reframe_experience(parsed["experience"], fit_map)
 
-    # 3. ATS keyword coverage (summary + reframed bullets vs fit_map keywords)
-    ats_keywords = fit_map.get("ats_keywords", [])
-    bullet_text  = " ".join(b for role in experience for b in role["bullets"])
-    searchable   = (summary + " " + bullet_text).lower()
-    kw_hits      = sum(1 for kw in ats_keywords if kw.lower() in searchable)
-    kw_pct       = round(100 * kw_hits / len(ats_keywords)) if ats_keywords else 0
+    # 4. Evaluation: keyword coverage + hallucination check on the tailored output
+    tailored_text_plain = _tailored_text({
+        **parsed,
+        "name": CANDIDATE["name"], "email": CANDIDATE["email"],
+        "phone": CANDIDATE["phone"], "linkedin": CANDIDATE["linkedin"],
+        "github": CANDIDATE["github"],
+        "summary": summary, "experience": experience,
+    })
+    eval_result = evaluate_resume(tailored_text_plain, resume_md, fit_map)
+    kw_pct      = eval_result["keyword_coverage_pct"]
 
     # 4. Assemble data dict
     data = {
@@ -565,12 +579,11 @@ def tailor_resume(job_id: int) -> tuple[str, int]:
     with open(pdf_path, "wb") as f:
         f.write(final_pdf_bytes)
 
-    # 8. Post-tailor dual re-score: fit + ATS on the tailored content
+    # 8. Post-tailor dual re-score on the final tailored text
     tailored_score: float | None = None
     try:
-        tailored_text = _tailored_text(data)
-        t_fit, _  = _fit_check(company, jd, tailored_text)
-        t_ats, _  = _ats_check(company, jd, tailored_text)
+        t_fit, _  = fit_check(company, jd, tailored_text_plain)
+        t_ats, _  = ats_check(company, jd, tailored_text_plain)
         tailored_score = round(0.6 * t_fit + 0.4 * t_ats)
     except Exception:
         pass  # non-fatal — score stays None, shown as missing in UI
