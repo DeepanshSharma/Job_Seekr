@@ -1,23 +1,91 @@
-# Job_Seekr V2 - Phase 3 Execution Plan
+# Job_Seekr — Phase 3 Execution Plan
 
-**Status:** Ready for Build
-**Goal:** Replace mock data with live jobs from two tracks — direct ATS APIs (Track A, free/no auth) and Apify scraping of LinkedIn + Indeed (Track B).
+**Status:** ✅ COMPLETE
+**Goal:** Replace mock data with live jobs from Track A (ATS APIs) and Track B (Apify scraping).
 
 ---
 
-## Decisions Locked In
+## What Was Built
+
+### `sourcer.py` — Full Sourcing Engine
+
+**Track A — Direct ATS APIs (free, no auth):**
+- `fetch_greenhouse(slug)` — `boards-api.greenhouse.io`
+- `fetch_lever(slug)` — `api.lever.co`
+- `fetch_ashby(slug)` — `api.ashbyhq.com`
+- `run_track_a()` — reads `portals.yml`, runs all fetchers, ingests results
+
+**Track B — Apify Scrapers:**
+- `run_linkedin_scraper()` — `curious_coder/linkedin-jobs-scraper` with pre-filtered URLs
+- `run_indeed_scraper()` — `misceres/indeed-scraper` with keyword + location params
+- `run_track_b()` — orchestrates both actors
+
+**Shared:**
+- `classify_role(title)` — keyword match → DA / BA / AI / None
+- `normalize_job(raw, source)` — maps raw API output → jobs table schema
+- `detect_ats(apply_url)` — detects Greenhouse/Lever/Workday/etc. from URL
+- `ingest(raw_jobs, source)` — dedup + classify + INSERT, returns counts
+- `run_sourcing(tracks)` — top-level entry point, auto-triggers pipeline after ingest
+
+**Deduplication (two layers):**
+1. Primary: `apify_url` match
+2. Secondary: `(company_name, job_title)` composite
+
+### `db.py` additions
+- `source TEXT` — 'track_a_greenhouse' | 'track_a_lever' | 'track_b_linkedin' | etc.
+- `external_id TEXT` — ATS-native job ID
+- `sourced_at TEXT` — ISO timestamp
+- `apply_url TEXT` — direct application link
+- `ats_type TEXT` — detected ATS platform
+- `is_easy_apply INTEGER` — 1 if LinkedIn Easy Apply
+- `job_url_exists()`, `job_composite_exists()`, `get_pending_jobs()`, `get_sourcing_stats()`
+
+### `app.py` — Sourcing Page (Page 2)
+- "Run Track A — ATS APIs" button (~30s, free)
+- "Run Track B — LinkedIn + Indeed" button (requires `APIFY_API_KEY`)
+- "Run Full Sourcing" button (both tracks)
+- Track B auto-disabled with tooltip if `APIFY_API_KEY` not set
+- DB Stats panel: Total Jobs · New Today · Pending Pipeline · By Source breakdown
+- Track B Configuration expander (shows which LinkedIn URLs are configured)
+
+### Auto-Pipeline Trigger
+After any sourcing run that inserts new jobs, `run_pipeline_on_pending()` is called
+automatically — new jobs go straight from Pending to scored without manual action.
+
+---
+
+## Environment Variables Required
+
+```
+APIFY_API_KEY=...              # Track B only
+LINKEDIN_URL_DA=...            # Pre-filtered LinkedIn search URL (Easy Apply + Past week + Full-time)
+LINKEDIN_URL_BA=...
+LINKEDIN_URL_AI=...
+```
+
+---
+
+## Phase 3 Verification — Confirmed Working
+- [x] Track A fetches from Greenhouse/Lever/Ashby and inserts to DB
+- [x] Dedup prevents re-insertion on re-runs
+- [x] Track B (LinkedIn) fetches via Apify and inserts with `source=track_b_linkedin`
+- [x] Auto-pipeline scores new Pending jobs immediately after ingest
+- [x] Sourcing page shows correct DB stats and by-source breakdown
+- [x] 552 live jobs currently in DB from LinkedIn track
+
+---
+
+## Key Decisions Made in Phase 3
 
 | Decision | Choice | Reason |
 |----------|--------|--------|
-| LinkedIn actor | `curious_coder/linkedin-jobs-scraper` | 4.9 ⭐, 40K users, highest rated on platform |
-| Indeed actor | `curious_coder/indeed-scraper` | Same author — consistent API pattern, simplifies `sourcer.py` |
-| LinkedIn input mode | Pre-filtered search URLs (4 URLs) | Locks in Easy Apply filter (Phase 4) + 24h date filter baked in |
-| Indeed input mode | keyword + country + location + `postedWithin=1` | Actor native params — 24h freshness matches Track A gate |
-| Auto-pipeline | Yes | After ingestion, pipeline runs automatically on new Pending jobs |
-| Track A freshness | `FRESHNESS_DAYS` env var (default 3) | Filter by `posted_at` at ingest time — drops anything older than 2 days |
-| Track A cap | 50 jobs per company | Prevents flooding DB from large portals like Stripe (500+ openings) |
-| Track B cap | 50 per search query | 4 queries × 50 = 200 max per run (~$0.20 at $1/1K rate) |
+| LinkedIn actor | `curious_coder/linkedin-jobs-scraper` | 4.9★, 40K users, most reliable |
+| Indeed actor | `misceres/indeed-scraper` | Free actor, 20K+ users |
+| Track A freshness | `FRESHNESS_DAYS` env (default 2) | Balance freshness vs. volume |
+| Track A cap | 50 jobs per company | Prevents flooding from large portals |
+| Track B cap | 50 per search query | 4 queries × 50 = 200 max per run |
 | Scheduling | Manual UI trigger only | No cron in Phase 3 — Phase 4+ |
+| Auto-pipeline | Yes — triggers on any new insert | Single flow, no manual step |
 
 ---
 

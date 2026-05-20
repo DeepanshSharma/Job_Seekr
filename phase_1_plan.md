@@ -1,31 +1,55 @@
-# Job_Seekr V2 - Phase 1 Execution Plan
+# Job_Seekr — Phase 1 Execution Plan
 
-**Status:** Ready for Execution.
-**Goal:** Build the UI Dashboard to display jobs, build a basic local database, and construct the Gemini AI scoring logic using a mock payload (No Apify, no Auto-Applying yet). Focus strictly on Python/Streamlit logic.
+**Status:** ✅ COMPLETE
+**Goal:** SQLite DB, Streamlit dashboard, and the triage pipeline using mock data.
 
 ---
 
-## 1. Local Database (SQLite)
-Create `db.py` to initialize `jobseeker.db` using Python's built-in `sqlite3`.
-**Schema:**
-- `resumes`: `id`, `role_type` (DA, BA, AI), `content` (Markdown).
-- `jobs`: `id`, `apify_url`, `company_name`, `job_title`, `job_description`, `posted_at`, `status` (Pending, Passed, Rejected), `match_score`, `assigned_resume_type`.
+## What Was Built
 
-## 2. Streamlit Dashboard (The UI)
-Create `app.py`.
-- **View 1 (Resumes):** A simple text area to paste and save the base markdown content for DA, BA, or AI.
-- **View 2 (Triage Board):** A clean data table (`st.dataframe` or custom columns) displaying active jobs. Must clearly show the Job Title, Company, Match Score (0-100%), and a status badge.
-- **Action Buttons:** A "Run Pipeline (Mock)" button that triggers the backend logic on a dummy JSON file.
+### `db.py`
+- `resumes` table — stores DA/BA/AI base resumes as markdown
+- `jobs` table — full job record including status, scores, legitimacy, source metadata
+- `init_db()` — creates tables + runs ALTER TABLE migrations for new columns
+- `seed_resumes_if_empty()` — auto-loads `resumes/*.md` on first run
+- CRUD: `insert_job`, `get_all_jobs`, `get_resume`, `save_resume`, `clear_jobs`
 
-## 3. Semantic Engine (`gemini_orchestrator.py`)
-This is the "Brain" for Phase 1, operating directly on a `mock_jobs.json`.
-1. **Fetch & Freshness Filter:** Load mock jobs. Drop anything `> 3 days` old.
-2. **OPT Filter Pipeline:** Send the JD to Gemini. Ask: *"Does this explicitly deny visa sponsorship or require US Citizenship?"*. If yes, set status to `Rejected` in SQLite.
-3. **Semantic Match Pipeline:** For the surviving jobs, send the JD + the assigned Base Resume content to Gemini. Ask: *"Acting as an ATS, score this resume against this JD from 0 to 100 based on core hard skills. Return only the JSON score."*
-4. Select only the jobs where `match_score >= 80`. Update the SQLite DB.
+### `app.py` — Triage Board (Page 1)
+- "Run Pipeline" button → calls `run_pipeline_on_pending()`
+- Displays jobs grouped by status: Passed (≥80%) · Low Match · Rejected · Stale · Error
+- Shows Fit score + ATS score per job, legitimacy badge, Tailor Resume action
 
-## Phase 1 Verification Checkpoint
-To successfully close Phase 1, we must:
-1. Run `streamlit run app.py` successfully.
-2. Paste the DA resume markdown into the form.
-3. Hit "Run Pipeline" and confirm the pipeline parses the mock data, drops the non-sponsoring jobs, and properly renders the `>80%` matched jobs in the Streamlit UI with their calculated Gemini scores.
+### Triage Pipeline (originally `gemini_orchestrator.py`, now `pipeline.py` + `llm.py`)
+1. **Freshness** — drop if posted >3 days ago
+2. **OPT Filter** — LLM: does JD explicitly ban visa sponsorship / require citizenship?
+3. **Legitimacy** — LLM: annotates job trustworthiness (never blocks)
+4. **Fit Score** — LLM: recruiter-lens conceptual match score (0-100)
+5. **ATS Score** — LLM: keyword surface-match score (0-100)
+6. **Decision** — combined score (70% fit + 30% ATS) → Passed / Low Match
+
+### Mock Data
+- `data/mock_jobs.json` — 8 jobs across Stripe, Deloitte, Cohere, Google DeepMind, etc.
+- DRY_RUN=true in `.env` skips all API calls, uses preset scores for fast iteration
+
+---
+
+## Phase 1 Verification — Confirmed Working
+
+- [x] `streamlit run app.py` starts without errors
+- [x] Resume Manager loads DA/BA/AI resumes from `resumes/` folder
+- [x] "Run Pipeline" on Triage Board processes mock jobs
+- [x] Passed jobs (≥80%) shown with Fit + ATS breakdown
+- [x] OPT-rejected jobs shown in Rejected expander
+- [x] Stale jobs filtered correctly
+
+---
+
+## Key Decisions Made in Phase 1
+
+| Decision | Choice | Reason |
+|----------|--------|--------|
+| LLM primary | Groq (`llama-3.3-70b-versatile`) | 14,400 req/day free, fast |
+| LLM fallback | Gemini (`gemini-2.0-flash`) | When Groq hits rate limits |
+| Score threshold | 80% | Practical balance of precision vs. volume |
+| Dual scoring | Fit (recruiter) + ATS (keyword) | Covers both human and automated screening |
+| Legitimacy | Annotates only, never blocks | Avoids false rejections on real postings |

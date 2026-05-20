@@ -1,92 +1,91 @@
-# Job_Seekr V2 - Phase 2 Execution Plan
+# Job_Seekr — Phase 2 Execution Plan
 
-**Status:** Building
-**Goal:** Tailoring Engine — take a Passed job from the Triage Board, LLM-tailor the matching resume against the JD, and render a one-page ATS PDF via Playwright.
+**Status:** ✅ COMPLETE
+**Goal:** Tailoring engine — LLM rewrites resume against JD, renders a one-page ATS PDF via Playwright.
 
 ---
 
-## Decisions Locked In
+## What Was Built
+
+### `tailor.py` — Full Tailoring Pipeline
+
+Entry point: `tailor_resume(job_id: int) -> tuple[str, int, float]`
+
+Steps executed in order:
+1. Load job from DB + base resume from SQLite
+2. **RAG retrieval** — embed JD, retrieve top-6 relevant resume chunks from ChromaDB
+3. `analyze_fit(jd, resume_context)` — single LLM call: competency map + gaps + ATS keywords
+4. `rewrite_summary(base_summary, fit_map)` — LLM rewrites 3-sentence summary with JD vocabulary
+5. `reframe_experience(experience, fit_map)` — LLM reframes bullets using fit map, preserving bullet count
+6. `evaluate_resume(tailored_text, original_resume, fit_map)` — keyword coverage % + hallucination check
+7. Assemble data dict → fill `cv-template.html`
+8. One-page fitting loop (margin compression → font reduction → bullet trim)
+9. Playwright renders HTML → Letter PDF
+10. Post-tailor re-score (fit + ATS on final tailored text) → saved to DB
+
+### `templates/cv-template.html`
+- Fonts: Space Grotesk (headings) + DM Sans (body) via Google Fonts
+- Teal section headers, purple company names, gradient header line
+- `@@PLACEHOLDER@@` tokens filled by `tailor.py`
+- CSS `@page { size: Letter; }` — Playwright enforces page count
+
+### One-Page Fitting Strategy
+
+Applied in order until PDF fits on exactly 1 page:
+
+| Step | What changes |
+|------|-------------|
+| 1 | Margin 0.60in → 0.55 → 0.50 → 0.45 → 0.40in |
+| 2 | Body font 11px → 10px; header font 13px → 11px |
+| 3 | Max bullets per role: drop to 3 |
+| 4 | Max projects: drop from 3 to 2 |
+
+Never goes below 0.40in margin or 9.5px body font.
+
+### `eval.py` — Custom Evaluator (added in AI Refactor phase)
+- **Keyword coverage** — what % of JD's required keywords appear in the tailored resume
+- **Hallucination detection** — flags tech terms added by the LLM that weren't in the original resume
+- No LLM needed — pure text analysis, fast and fully explainable
+
+### `db.py` additions
+- `tailored_resume_path TEXT` — path to generated PDF
+- `tailor_status TEXT` — 'Pending' | 'Done' | 'Error'
+- `tailored_match_score REAL` — post-tailor combined score
+- `update_tailor_result()`, `get_tailor_status()`, `get_job_by_id()`
+
+### `app.py` additions
+- "Tailor Resume" button per Passed/Low Match job (gated: only 65-90% match score)
+- Spinner during render (~30s), success shows keyword coverage % + score improvement
+- Download PDF button on completion
+- "Already excellent — skip" shown for >90% matches
+
+---
+
+## ATS Rules (Non-Negotiable)
+- Single-column layout — no sidebars
+- Standard section headers
+- UTF-8, selectable text
+- ATS character normalization (em-dash → hyphen, smart quotes → straight, etc.)
+- Keywords distributed: Summary (top 5), first bullet of each role, Skills section
+
+---
+
+## Phase 2 Verification — Confirmed Working
+- [x] "Tailor Resume" button appears for eligible jobs in Triage Board
+- [x] Spinner → PDF generated → download button shown
+- [x] PDF is exactly one page (fitting loop working)
+- [x] Keyword coverage % reported
+- [x] ATS normalization applied before render
+- [x] Post-tailor re-score saved to DB and shown in UI
+
+---
+
+## Key Decisions Made in Phase 2
 
 | Decision | Choice | Reason |
 |----------|--------|--------|
-| PDF renderer | Playwright (chromium) | Already needed for Phase 4 auto-apply; no extra dep |
-| One-page constraint | Hard — non-negotiable | Recruiter standard; must always be one page |
-| Margin lever | Compress 0.6in → 0.4in min | Primary fit strategy before font/content cuts |
-| Cover letter | TBD — not confirmed yet | Will confirm before build |
-| Design baseline | Deepansh's existing DOCX | Match this if custom design doesn't clearly win |
-
----
-
-## Files to Build
-
-### 1. `tailor.py` — LLM Tailoring Engine
-
-Responsibilities:
-- `extract_keywords(jd: str) -> list[str]` — Groq extracts 15-20 JD keywords
-- `rewrite_summary(base_resume: str, jd: str, keywords: list) -> str` — Groq rewrites Professional Summary
-- `reframe_bullets(role_bullets: list, jd: str, keywords: list) -> list` — Groq reframes bullets using JD vocabulary
-- `build_competencies(keywords: list) -> list` — selects 6-8 keyword phrases for competency grid
-- `tailor_resume(job_id: int) -> str` — orchestrates all the above, fills template, calls Playwright
-- Returns: path to PDF in `output/`
-
-### 2. `templates/cv-template.html` — HTML Resume Template
-
-Python f-string template (no Jinja2 dependency) with placeholder slots:
-- `{name}`, `{email}`, `{phone}`, `{linkedin}`, `{github}`
-- `{summary}` — tailored Professional Summary paragraph
-- `{competencies}` — list of 6-8 keyword phrases for flex-grid
-- `{experience}` — list of roles with company, title, dates, bullets
-- `{projects}` — top 2-3 most relevant projects
-- `{education}` — degrees + certifications
-- `{skills}` — condensed skills row
-
-Design: Space Grotesk + DM Sans (Google Fonts), teal section headers, purple company names, gradient header line.
-One-page enforced: CSS `@page { size: Letter; margin: 0.6in; }` — Playwright checks page count after render; re-renders with tighter margins if > 1 page.
-
-### 3. `app.py` additions (Triage Board)
-
-- **"Tailor Resume"** button per Passed job row
-- On click: spinner → `tailor_resume(job_id)` → `st.download_button` linking to PDF
-- On error: show inline error, log to DB
-- New columns used: `tailor_status`, `tailored_resume_path`
-
-### 4. `db.py` additions
-
-```python
-# New columns (add via ALTER TABLE migration in init_db):
-# tailored_resume_path TEXT
-# tailor_status TEXT DEFAULT 'Pending'
-
-def update_tailor_result(job_id: int, pdf_path: str): ...
-def get_tailor_status(job_id: int) -> dict: ...
-```
-
----
-
-## One-Page Fitting Strategy (ordered)
-
-Apply each step and re-render until it fits on exactly one page:
-
-1. Compress margins: 0.6in → 0.55in → 0.5in → 0.45in → 0.4in (never below 0.4in)
-2. Reduce font size: body 11px → 10px; headers 13px → 11px (never below 9.5px body)
-3. Cut bullets to 1 line each; remove lowest-priority bullets
-4. Show 2 projects instead of 3
-
----
-
-## Build Order
-
-1. `db.py` — add new columns + helper functions
-2. `templates/cv-template.html` — build and visually verify in browser
-3. `tailor.py` — LLM stage first (DRY_RUN), then Playwright render + page-count check
-4. `app.py` — wire "Tailor Resume" button + download link
-
----
-
-## Phase 2 Verification Checkpoint
-
-1. Click "Tailor Resume" on a Passed job in the Triage Board
-2. Spinner shows, then success with download link
-3. PDF is exactly one page, correct name/contact, tailored bullets using JD vocabulary
-4. Keyword coverage % reported (target ≥ 70%)
-5. No smart quotes, em-dashes, or zero-width chars in the PDF (ATS normalization confirmed)
+| PDF renderer | Playwright (Chromium) | Already needed for Phase 4; no extra dep |
+| One-page constraint | Hard — non-negotiable | Recruiter standard |
+| RAG in tailoring | Top-6 chunks via ChromaDB | More focused LLM context = better tailoring |
+| Hallucination check | Tech-term list (no LLM) | Fast, transparent, explainable |
+| Cover letter | Not in scope | Deferred — adds complexity without clear Phase 2 value |
