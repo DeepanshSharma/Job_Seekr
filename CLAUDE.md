@@ -48,7 +48,7 @@ DRY_RUN=false        # Set true during dev to skip API calls
 - **Primary:** Groq (`llama-3.3-70b-versatile`) — 14,400 req/day free
 - **Fallback:** Gemini (`gemini-2.0-flash`) — only used when Groq fails
 - **DRY_RUN=true** — skips all API calls, uses preset scores. Use during dev.
-- All LLM calls go through `_call_llm()` in `gemini_orchestrator.py`
+- All LLM calls go through `call_llm()` in `llm.py`
 - Never call Groq/Gemini directly from `app.py`
 
 ## Database
@@ -263,7 +263,7 @@ Examples:
 
 ## What NOT to do
 
-- Don't call Gemini/Groq directly from `app.py` — use `gemini_orchestrator.py`
+- Don't call Gemini/Groq directly from `app.py` — use `llm.py`
 - Don't call Playwright directly from `app.py` — use `tailor.py`
 - Don't commit `.env` or `jobseeker.db`
 - Don't add features beyond the current phase without discussing first
